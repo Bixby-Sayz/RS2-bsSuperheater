@@ -1,16 +1,16 @@
 program bsSuperHeater;
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-                O.S.I. Official SCAR Include - bsSuperHeater               v1.00
+                O.S.I. Official SCAR Include - bsSuperHeater               v1.10
 --------------------------------------------------------------------------------
 SCRIPT INFO
 --------------------------------------------------------------------------------
 Script Name:      bsSuperHeater
 Script Author(s): Bixby Sayz
-Script Version:   1.00
-Script Date:      2012-01-09. RS2 Build 696.
+Script Version:   1.10
+Script Date:      2012-01-13. RS2 Build 698. HAPPY FRIDAY THE 13TH !!!
 Description:      Smelts ores using superheat spell (regular spellbook).
 
-                  More scripts can be found at scar-divi.com
+                  More scripts can be found at http://forums.scar-divi.com
 
 --------------------------------------------------------------------------------
 FEATURES
@@ -19,8 +19,19 @@ FEATURES
 - Sorts spellbook and uses optimized clicking to minimize mouse mousement.
 - Stats report includes magic/smithing/total experience and experience per hour.
 - Fully multiplayer.
-- Support all ores/bars.
+- Supports all ores/bars including blurite (just because I can).
 - Supports any bank supported by OSI.
+- Fast! And rock solid. The only thing that will kill this randoms.
+
+--------------------------------------------------------------------------------
+     IMPORTANT - IMPORTANT - IMPORTANT - IMPORTANT - IMPORTANT - IMPORTANT
+--------------------------------------------------------------------------------
+USE THIS SCRIPT RESPONSIBLY
+- Do not run this script for 3 days straight on a single player. Duh!
+- BE PATIENT when buying/selling supplies!!!
+- Buy your supplies AT OR BELOW mid price.
+- Sell your finished product AT OR ABOVE mid price.
+- Failure to do so will screw up the market for all of us. Don't be an idiot.
 
 --------------------------------------------------------------------------------
 REQUIREMENTS
@@ -44,21 +55,41 @@ INSTRUCTIONS
 - Place your nature runes in 1st inventory slot.
 - Equip/weild your fire staff.
 - Ores must be visible in bank. Closer to the right side of the bank will
-  speed banking and increase your experience per hour slightly.
-- Fill in account info in DeclarePlayers (line 157).
+  speed banking and increase your experience per hour (very) slightly.
+- Comment/uncomment appropriate defines. (line 157).
+- Fill in account info in DeclarePlayers (line 226).
 
 --------------------------------------------------------------------------------
 KNOWN ISSUES
 --------------------------------------------------------------------------------
-- Randoms can and will stop this script. If running multiplayer script will
-  continue with next player.
-- Rare glitch where experience displays negative experience gained. Unable to
-  track down/resolve this issue.
+- Randoms can and will stop this script. If running multiplayer then script will
+  continue on with next player.
+- Sometimes hops to a different bank booth everytime it banks. (Talk about
+  screaming "I am a bot!") Blame OSI's banking routines.
+- On rare occasions random finding will falsely detect an unknown random
+  immediately after banking. Fixed???
+- Sometimes fails to read experience from stats tab just before breaking.
 
 --------------------------------------------------------------------------------
 VERSION HISTORY
 --------------------------------------------------------------------------------
-2012-01-09 - v1.00 - Initial Private Release
+2012-01-13 - v1.10 - First Public Release
+- Fixed osi update breaking time worked.
+- Added workaround for "runescape has been reloaded".
+- Tweaked reports layout/when to report.
+- Changed spellbook sorting to support both non-member/members.
+- Moved superheat spell location into player record.
+- Added experience chart to comments.
+- Fixed reporting incorrect time worked.
+- Fixed incorrect click pattern when low on ores.
+- Fixed sometimes failing to sort spellbook.
+- Fixed minor spacing issue in report.
+- Fixed mouseover text sometimes causing find spell icon to fail.
+- Fixed banking reporting success even when failed.
+- Fixed (i hope) lag sometimes causing accidental switch to objectives tab.
+- Increased the timeouts to make it more lag friendly.
+
+2012-01-09 - v1.00 - Private Release
 - Supports all ores/bars.
 - Optimized clicking.
 - Stats.
@@ -69,7 +100,7 @@ VERSION HISTORY
 --------------------------------------------------------------------------------
 FUTURE REVISIONS
 --------------------------------------------------------------------------------
-- Urns.
+- Urns (need to get my crafting up first).
 - Coalbags. (unlikely unless someone wants to loan an account)
 - Player form. (not a priority)
 
@@ -78,7 +109,45 @@ CREDITS
 --------------------------------------------------------------------------------
 - Freddy for bringing us SCAR. You're my hero!
 - OSI Devs for the includes that make it possible.
-- Bixby Sayz (oh, wait, that's me!) for being insanely awesome.
+- Bixby Sayz (oh wait, that's me!) for being insanely awesome.
+
+--------------------------------------------------------------------------------
+EXPERIENCE - Sample experience rates. YMMV.
+--------------------------------------------------------------------------------
+
++----------+----------+----------+----------+
+| Bar Type | M Exp/Hr | S Exp/Hr | T Exp/Hr |
++----------+----------+----------+----------+
+| bronze   |   78,537 |    9,187 |   87,725 |
+| iron     |  109,704*|   25,870 |  135,574*|
+| steel    |   76,647 |   25,306 |  101,952 |
+| mithril  |   53,683 |   30,387 |   84,070 |
+| adamant  |   37,293 |   26,386 |   63,679 |
+| rune     |   37,367 |   35,252 |   72,620 |
+| silver   |   52,538 |   13,579 |   66,117 |
+| gold     |   94,963 |   40,315*|  135,278 |
+| blurite  |   85,448 |   12,898 |   98,346 |
++----------+----------+----------+----------+
+
+* = Highest experience in category.
+
+If you only care about experience rates and have more gp than you know what to
+do with, superheat gold while wearing goldsmith gauntlets (double smithing xp).
+
+Anything less than steel you will lose money. Steel is far and away the best
+money maker. Rune is arguably the best smithing experience while showing a
+modest profit.
+
+You want:
+     PROFIT: Steel
+  MAGIC EXP: Iron (or Gold)
+  SMITH EXP: Gold (or Rune)
+
+Note: These rates were generated on a member server before I realized the
+      spellbook layout was less than optimal on members. Actual rates may be
+      a bit higher then listed.
+
+      This chart WILL NOT BE UPDATED. It is a guide only.
 
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 
@@ -101,8 +170,8 @@ CREDITS
 /////////////////////////////////////////////
 const
   SCRIPT_NAME = 'bsSuperHeater';
-  SCRIPT_VERSION = '1.00';
-  SCRIPT_DATE = '2012-01-09';
+  SCRIPT_VERSION = '1.10';
+  SCRIPT_DATE = '2012-01-13';
   SCRIPT_AUTHOR = 'Bixby Sayz';
 
   // Constants for referencing players array.
@@ -115,23 +184,25 @@ const
   BSEC = 0;    // Booleans[0] = Use secondary ore.
   ESXP = 0;    // Extendeds[0] = Smithing experience per bar.
   TICLK = 0;   // TIA[0] = Click pattern.
-  TISTAT = 1;  // TIA[1] = Player stats.
-  IST = 0;     // TIA[1][0] = Start time.
-  IBM = 1;     // TIA[1][1] = Bars made.
-  ISME = 2;    // TIA[1][2] = Starting magic experience.
-  ICME = 3;    // TIA[1][3] = Current magic experience.
-  IMXP = 4;    // TIA[1][4] = Magic experience gained.
-  IMPH = 5;    // TIA[1][5] = Magic experience per hour.
-  ISML = 6;    // TIA[1][6] = Starting magic level.
-  IMLV = 7;    // TIA[1][7] = Magic levels gained.
-  ISSE = 8;    // TIA[1][8] = Starting smithing experience.
-  ICSE = 9;    // TIA[1][9] = Current smithing experience.
-  ISXP = 10;   // TIA[1][10] = Smithing experience gained.
-  ISPH = 11;   // TIA[1][11] = Smithing experience per hour.
-  ISSL = 12;   // TIA[1][12] = Starting smithing level.
-  ISLV = 13;   // TIA[1][13] = Smithing levels gained.
-  ITXP = 14;   // TIA[1][14] = Total experience gained.
-  ITPH = 15;   // TIA[1][15] = Total experience per hour.
+  TIOTH = 1;   // TIA[2] = Other details.
+  TISTAT = 2;  // TIA[1] = Player stats.
+  ISHX = 0;    // TIA[1][0] = Superheat spell icon location (x).
+  ISHY = 1;    // TIA[1][1] = Superheat spell icon location (y).
+  IBM = 0;     // TIA[2][0] = Bars made.
+  ISME = 1;    // TIA[2][1] = Starting magic experience.
+  ICME = 2;    // TIA[2][2] = Current magic experience.
+  IMXP = 3;    // TIA[2][3] = Magic experience gained.
+  IMPH = 4;    // TIA[2][4] = Magic experience per hour.
+  ISML = 5;    // TIA[2][5] = Starting magic level.
+  IMLV = 6;    // TIA[2][6] = Magic levels gained.
+  ISSE = 7;    // TIA[2][7] = Starting smithing experience.
+  ICSE = 8;    // TIA[2][8] = Current smithing experience.
+  ISXP = 9;    // TIA[2][9] = Smithing experience gained.
+  ISPH = 10;   // TIA[2][10] = Smithing experience per hour.
+  ISSL = 11;   // TIA[2][11] = Starting smithing level.
+  ISLV = 12;   // TIA[2][12] = Smithing levels gained.
+  ITXP = 13;   // TIA[2][13] = Total experience gained.
+  ITPH = 14;   // TIA[2][14] = Total experience per hour.
 
 /////////////////////////////////////////////
 ///////////      CUSTOM TYPES     ///////////
@@ -144,8 +215,6 @@ var
   TimeToRun: Integer;        // Total time to run script.
   TimeBeforeBreak: Integer;  // Time to run each player before breaking.
   BreakTime: Integer;        // How long to break between players.
-  SuperHeatDTM: Integer;     // Dtm of superheat spell icon.
-  SuperHeatPos: TPoint;      // Screen coords of superheat spell.
 
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 procedure DeclarePlayers;
@@ -171,30 +240,31 @@ begin
   for I := 0 to (NumPlayers - 1) do
   with Players[I] do
   begin
+    Status := 'Unknown';
     SetLength(Strings, 1);
     SetLength(Integers, 5);
     SetLength(Booleans, 1);
     SetLength(Extendeds, 1);
-    SetLength(TIA, 2);
-    SetLength(TIA[TISTAT], 16);
-    Players[I].Status := 'Unknown';
-    Players[I].Worked := 0;
-    Players[I].Banked := 0;
+    SetLength(TIA, 3);
+    SetLength(TIA[TIOTH], 2);
+    SetLength(TIA[TISTAT], 15);
+    TIA[TIOTH][ISHX] := 0;
+    TIA[TIOTH][ISHY] := 0;
   end;
 
   // Setup player 0 (first player).
   with Players[0] do
   begin
-    Name := '';                        // In-game character name.
-    Login := ''                        // Login handle.
-    Pass := '';                        // Login password.
+    Name := 'Zezima';                  // In-game character name.
+    Login := 'Zezima'                  // Login handle.
+    Pass := 'You Wish';                // Login password.
     Pin := '';                         // Bank Pin. ('' for none)
     LampSkill := 'smithing';           // Skill for lamp/exp randoms.
     Member := False;                   // Members?
     BoxRewards := ['mote', 'ostume', 'lamp', 'nowledge', 'oins'];  // Partial text for rewards, place in desired order.
     Active := True;
 
-    // bronze, iron, steel, mith, mithril, addy, adamant, rune, silver, gold, blurite
+    // bronze, iron, steel, mith, mithril, addy, adamant, rune, silver, gold, blurite(members)
     Strings[0] := 'steel';             // Bar to make.
     // loc_lbc, loc_akb, loc_feb, loc_fwb, loc_dyb, loc_veb, loc_vwb, loc_evb, loc_geb
     Integers[0] := Loc_VWB;            // Bank to use.
@@ -256,13 +326,40 @@ function MyLogin: Boolean;
 Contributors: Bixby Sayz
 Description: Logs player in.
 Date Created: 2012-01-06. By Bixby Sayz. RS2 Build 696.
-Last Modification: 2012-01-06. By Bixby Sayz. RS2 Build 696.
+Last Modification: 2012-01-13. By Bixby Sayz. RS2 Build 698.
 Note: This is a workaround for login function conflicting with login property of
       players array.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 function MyLogin: Boolean;
 begin
+{$IFDEF DEBUG}
+  WriteString('MyLogin', '');
+{$ENDIF}
+
+  // Atempt login.
   Result := Login;
+
+  // If login failed and "runescape has been reloaded" error then restart smart
+  // client.
+  if not Result then
+  begin
+    WriteString('MyLogin', 'Failed login attempt.');
+{$IFDEF SMART}
+    if (Players[CurrentPlayer].Loc = 'RS updated') then
+    begin
+      Players[CurrentPlayer].Active := True;
+      WriteString('MyLogin', 'Restarting SMART client.');
+      SMART_Server := RandomWorld(Players[CurrentPlayer].Member);
+      if not InitiateSMART then
+      begin
+        WriteString('MyLogin', 'Failed to restart SMART client.');
+        Exit;
+      end;
+      // Reattempt login.
+      Result := Login;
+{$ENDIF}
+    end;
+  end;
 end;
 
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -271,7 +368,7 @@ Contributors: Bixby Sayz
 Description: Checks for randoms. Returns true on everything okay. Sets gametab
              to desired tab after solving random.
 Date Created: 2012-01-02. By Bixby Sayz. RS2 Build 695.
-Last Modification: 2012-01-08. By Bixby Sayz. RS2 Build 696.
+Last Modification: 2012-01-13. By Bixby Sayz. RS2 Build 698.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 function CheckRandoms: Boolean;
 var
@@ -282,6 +379,19 @@ begin
 {$IFDEF DEBUG}
   WriteString('CheckRandoms', '');
 {$ENDIF}
+
+  // If we are not logged in it may be due to "runescape has been updated".
+  if not LoggedIn then
+  begin
+{$IFDEF DEBUG}
+    WriteString('CheckRandoms', 'Not logged in. Attempting login.');
+{$ENDIF}
+    if not MyLogin then
+    begin
+      WriteString('CheckRandoms', 'Failed login attempt.');
+      Exit;
+    end;
+  end;
 
   // Bank screen hides tabs which will give a false positive for randoms.
   if BankScreen then
@@ -335,7 +445,7 @@ function WaitForTab(WhichTab: Integer; SwitchImmediately: Boolean): Boolean;
 Contributors: Bixby Sayz
 Description: Wait for desired gametab.
 Date Created: 2012-01-06. By Bixby Sayz. RS2 Build 696.
-Last Modification: 2012-01-06. By Bixby Sayz. RS2 Build 696.
+Last Modification: 2012-01-13. By Bixby Sayz. RS2 Build 698.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 function WaitForTab(WhichTab: Integer; SwitchImmediately: Boolean): Boolean;
 var
@@ -349,7 +459,7 @@ begin
 
   // Wait for tab to become visible. (After banking the tabs take a second to
   // reappear)
-  T := GetSystemTime + RandomRange(2500, 5000);
+  T := GetSystemTime + RandomRange(7500, 10000);
   repeat
     WaitRR(25, 50);
     if (GetSystemTime > T) then
@@ -364,7 +474,7 @@ begin
   // again.
   for I := 0 to 1 do
   begin
-    T := GetSystemTime + RandomRange(2500, 5000);
+    T := GetSystemTime + RandomRange(7500, 10000);
     repeat
       WaitRR(25, 50);
       if (GetSystemTime > T) then
@@ -374,6 +484,16 @@ begin
     if Result then
       Exit;
 
+    // If lag causees us to click a tab twice the game automaticaly switches to
+    // the objectives tab (only happens on newer accounts. Doesn't affect older
+    // accounts) Truly annoying. If this happens switch back to the tab we want.
+    if (GetCurrentTab = Tab_Objectives) then
+    begin
+      SetGameTab(WhichTab);
+      Continue;
+    end;
+
+    // If that isn't the case, then maybe a random got us?
     if (I = 0) then
     begin
       if not CheckRandoms then
@@ -384,11 +504,173 @@ begin
 end;
 
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function CheckMembersWorld: Boolean;
+Contributors: Bixby Sayz
+Description: Reads world number from friends tab and determines if it is a
+             members world.
+Date Created: 2012-01-11. By Bixby Sayz. RS2 Build 697.
+Last Modification: 2012-01-11. By Bixby Sayz. RS2 Build 697.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function CheckMembersWorld: Boolean;
+var
+  S: String;       // World text read from screen.
+  SLen: Integer;   // Length of world text.
+  World: Integer;  // World number.
+  HiRw: Integer;   // Size of world info array.
+  I: Integer;      // Loop counter.
+begin
+  Result := False;
+{$IFDEF DEBUG}
+  WriteString('CheckMembersWorld', '');
+{$ENDIF}
+  // Check logged in.
+  if not LoggedIn then
+  begin
+    WriteString('CheckMembersWorld', 'Not logged in.');
+    Exit;
+  end;
+
+  // Switch to friends tab.
+  if not WaitForTab(Tab_Friends, True) then
+  begin
+    WriteString('CheckMembersWorld', 'Failed to switch to friends tab.');
+    Exit;
+  end;
+  // Read world text from friends tab.
+  S := Trim(GetTextAtEx(660, 223, 10, LoginChars, False, False, 0, 2, 3381759, 4, True, tr_AllChars));
+  SLen := Length(S);
+  if (SLen = 0) then
+  begin
+    WriteString('CheckMembersWorld', 'Failed to read world number.');
+    Exit;
+  end;
+  // Trim off leading spaces/garbage.
+  for I := SLen downto 1 do
+    if (S[I] < '0') or (S[I] > '9') then
+      Break;
+  if (I = SLen) then
+  begin
+    WriteString('CheckMembersWorld', 'Failed to read world number.');
+    Exit;
+  end;
+
+  // Convert world to a number and look it up.
+  World := StrToIntDef(Copy(S, (I + 1), (SLen - I)), 0);
+  if (World = 0) then
+  begin
+    WriteString('CheckMembersWorld', 'Failed to read world number.');
+    Exit;
+  end;
+  HiRw := High(RS2WorldArray);
+  for I := 0 to HiRw do
+    if (RS2WorldArray[I].Number = World) then
+    begin
+      Result := RS2WorldArray[I].Members;
+      Exit;
+    end;
+
+  // We failed to lookup world.
+  WriteString('CheckMembersWorld', 'Failed to lookup world number.');
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function GetClickPattern(NumOres: Integer; Members: Boolean): TIntegerArray;
+Contributors: Bixby Sayz
+Description: Determines optimal click pattern for x number of ores.
+Date Created: 2012-01-02. By Bixby Sayz. RS2 Build 695.
+Last Modification: 2012-01-11. By Bixby Sayz. RS2 Build 697.
+Note: Assumes nature runes in slot 0 and magic tab will be sorted to match the
+      click pattern.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function GetClickPattern(NumOres: Integer): TIntegerArray;
+var
+  I: Integer;  // Loop counter.
+begin
+  Result := [];
+  if (NumOres < 1) or (NumOres > 27) then
+    Exit;
+
+  // Determine optimal click pattern.
+  case NumOres of
+    3: Result := [3, 3, 3];
+    5: Result := [5, 5, 5, 5, 5];
+    9: Result := [9, 9, 9, 9, 9, 9, 9, 9, 9];
+    13: Result := [13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13];
+    27: Result := [22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22,
+                   22, 22, 22, 22, 22 ,22, 22, 25, 25, 25, 26, 27]
+    // Failsafe. Simply click on the last ore until done.
+    else
+    begin
+      SetLength(Result, NumOres);
+      for I := 0 to (NumOres - 1) do
+        Result[I] := NumOres;
+    end;
+  end;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function GetSortOrder(NumOres: Integer; Members: Boolean; out Options: TBooleanArray; out SortOrder): Boolean;
+Contributors: Bixby Sayz
+Description: Determines optimal sort order options for magic tab.
+Date Created: 2012-01-11. By Bixby Sayz. RS2 Build 697.
+Last Modification: 2012-01-11. By Bixby Sayz. RS2 Build 697.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function GetSortOrder(NumOres: Integer; Members: Boolean; out Options: TBooleanArray; out SortOrder: String): Boolean;
+begin
+  Result := False;
+{$IFDEF DEBUG}
+  WriteString('GetSortOrder', '');
+{$ENDIF}
+
+  // Get sort order.
+  case NumOres of
+    3: if Members then
+       begin
+         Options := [False, False, False, True, True];
+         SortOrder := 'level';
+       end
+       else
+       begin
+         Options := [False, False, False, False, True];
+         SortOrder := 'teleport';
+       end;
+    5: begin
+         if Members then
+           Options := [False, False, True, False, True]
+         else
+           Options := [False, True, False, False, True];
+         SortOrder := 'level';
+       end;
+    9: begin
+         Options := [False, True, True, False, True];
+         SortOrder := 'teleport';
+       end;
+    13: begin
+          Options := [False, True, True, True, True];
+          if Members then
+            SortOrder := 'teleport'
+          else
+            SortOrder := 'level';
+        end;
+    27: begin
+          Options := [False, True, True, True, True];
+          SortOrder := 'combat';
+       end;
+    // Failsafe. Simply set things back to defaults.
+    else
+    begin
+      Options := [False, True, True, True, True];
+      SortOrder := 'level';
+    end;
+  end;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 function SetMagicOptions(Defensive, Combat, Teleport, Miscellaneous, Skill: Boolean; SortOrder: String): Boolean;
 Contributors: Bixby Sayz
 Description: Toggles displays/sort order options of magic tab.
 Date Created: 2012-01-08. By Bixby Sayz. RS2 Build 696.
-Last Modification: 2012-01-08. By Bixby Sayz. RS2 Build 696.
+Last Modification: 2012-01-10. By Bixby Sayz. RS2 Build 696.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 function SetMagicOptions(Options: TBooleanArray; SortOrder: String): Boolean;
 var
@@ -411,12 +693,13 @@ begin
               IntToBox(646, 441, 665, 460), IntToBox(674, 441, 693, 460),
               IntToBox(693, 441, 712, 460), IntToBox(712, 441, 731, 460)];
 
+  // Check logged in.
   if not LoggedIn then
   begin
     WriteString('SetMagicOptions', 'Not logged in.');
     Exit;
   end;
-
+  // Check options.
   if (Length(Options) <> 5) then
   begin
     WriteString('SetMagicOptions', 'Invalid number of options (' + IntToStr(Length(Options)) + ').');
@@ -440,7 +723,7 @@ begin
     'level': SortButton := 5;
     'combat': SortButton := 6;
     'teleport': SortButton := 7;
-  else
+    else
     begin
       WriteString('SetMagicOptions', 'Invalid sort order (' + SortOrder + ').');
       Exit;
@@ -448,7 +731,7 @@ begin
   end;
 
   // Click appropriate sort order button.
-  if not SimilarColors(GetColor(Buttons[SortButton].X1, (Buttons[SortButton].Y1 + 10)), 16711422, 5) then
+  if not SimilarColors(GetColor((Buttons[SortButton].X1 + 10), Buttons[SortButton].Y1), 16711422, 5) then
     MouseBox((Buttons[SortButton].X1 + 2), (Buttons[SortButton].Y1 + 2), (Buttons[SortButton].X2 - 2), (Buttons[SortButton].Y2 - 2), ClickLeft);
 
   // Ensure magic list is scrolled all the way to the top.
@@ -460,58 +743,20 @@ begin
 end;
 
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-function GetClickPattern(NumOres: Integer): TIntegerArray;
-Contributors: Bixby Sayz
-Description: Determines optimal click pattern for x number of ores.
-Date Created: 2012-01-02. By Bixby Sayz. RS2 Build 695.
-Last Modification: 2012-01-08. By Bixby Sayz. RS2 Build 696.
-Note: Assumes nature runes in slot 0 and magic tab will be sorted to match the
-      click pattern.
-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
-function GetClickPattern(NumOres: Integer): TIntegerArray;
-var
-  I: Integer;  // Loop counter.
-begin
-  Result := [];
-  if (NumOres < 1) or (NumOres > 27) then
-    Exit;
-
-  // Determine optimal click pattern.
-  case NumOres of
-    3: Result := [3, 3, 3];
-    5: Result := [5, 5, 5, 5, 5];
-    9: Result := [9, 9, 9, 9, 9, 9, 9, 9, 9];
-    13: Result := [13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13];
-    27: Result := [22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22,
-                   22, 22, 22, 22, 22 ,22, 22, 23, 26, 26, 26, 27];
-  // Failsafe. Simply click on the last ore until done.
-  else
-    begin
-      SetLength(Result, NumOres);
-      for I := 0 to (NumOres - 1) do
-        Result[I] := NumOres;
-    end;
-  end;
-end;
-
-{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-procedure CalcPlayerExpGain(CalcTime: Boolean);
+procedure CalcExpPerHour;
 Contributors: Bixby Sayz
 Description: Calculate experience gain, experience per hour, etc.
 Date Created: 2012-01-08, By Bixby Sayz. RS2 Build 696.
-Last Modification: 2012-01-09, By Bixby Sayz. RS2 Build 696.
+Last Modification: 2012-01-13, By Bixby Sayz. RS2 Build 698.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
-procedure CalcPlayerExpGain(CalcTime: Boolean);
+procedure CalcExpPerHour;
 var
   T: Integer;  // Time counter.
 begin
   with Players[CurrentPlayer] do
   begin
     // Time worked.
-    if (CalcTime) then
-      T := Worked + (GetTimeRunning - TIA[TISTAT][IST])
-    else
-      T := Worked;
+    T := (Worked + (GetSystemTime - PlayerStartTime));
     // Magic experience/level.
     TIA[TISTAT][IMXP] := (TIA[TISTAT][IBM] * 53);
     TIA[TISTAT][ICME] := (TIA[TISTAT][ISME] + TIA[TISTAT][IMXP]);
@@ -539,13 +784,13 @@ begin
 end;
 
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-procedure GetPlayerExpLevels(DoCalc: Boolean);
+procedure GetPlayerExpLevels;
 Contributors: Bixby Sayz
 Description: Get current experience and levels.
 Date Created: 2012-01-04, By Bixby Sayz. RS2 Build 696.
-Last Modification: 2012-01-09, By Bixby Sayz. RS2 Build 696.
+Last Modification: 2012-01-10, By Bixby Sayz. RS2 Build 696.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
-procedure GetPlayerExpLevels(DoCalc: Boolean);
+procedure GetPlayerExpLevels;
 var
   MagicXp: Integer;  // Magic experience.
   SmithXp: Integer;  // Smithing experience.
@@ -553,7 +798,7 @@ begin
 {$IFDEF DEBUG}
   WriteString('GetPlayerExpLevels', '');
 {$ENDIF}
-
+  // Check logged in.
   if not LoggedIn then
   begin
     WriteString('GetPlayerExpLevels', 'Not logged in.');
@@ -581,17 +826,15 @@ begin
     // Get starting experience/levels.
     if (TIA[TISTAT][ISML] = 0) then
     begin
-      TIA[TISTAT][ISML] := Level[Skill_Magic];
       TIA[TISTAT][ISME] := MagicXp;
-      TIA[TISTAT][ISSL] := Level[Skill_Smithing];
+      TIA[TISTAT][ISML] := Level[Skill_Magic];
       TIA[TISTAT][ISSE] := SmithXp;
+      TIA[TISTAT][ISSL] := Level[Skill_Smithing];
     end;
 
     // Update experience/levels gained.
     TIA[TISTAT][ICME] := MagicXp;
     TIA[TISTAT][ICSE] := SmithXp;
-    if DoCalc then
-      CalcPlayerExpGain(True);
   end;
 end;
 
@@ -600,64 +843,103 @@ procedure DoReport;
 Contributors: Bixby Sayz
 Description: Progress report.
 Date Created: 2012-01-04. By Bixby Sayz. RS2 Build 696.
-Last Modification: 2012-01-09. By Bixby Sayz. RS2 Build 696.
+Last Modification: 2012-01-13. By Bixby Sayz. RS2 Build 698.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure DoReport(ReportType: String);
 var
-  TR: Integer;   // Total time running.
-  Hr: Integer;   // Hours.
-  Mn: Integer;   // Minutes.
-  Sc: Integer;   // Seconds.
-  I: Integer;    // Loop counter.
+  TR: Integer;        // Total time running.
+  Hr: Integer;        // Hours.
+  Mn: Integer;        // Minutes.
+  Sc: Integer;        // Seconds.
+  S: String;          // Report.
+  SA: TStringArray;   // Expanded report.
+  CW: Integer;        // Time worked current player.
+  HiPlayer: Integer;  // Size of player array.
+  I: Integer;         // Loop counter.
+  T: Integer;         // Time counter.
 begin
+  // Get time running.
   TR := GetTimeRunning;
   ConvertTime(TR, Hr, Mn, Sc);
+  CW := (Players[CurrentPlayer].Worked + (GetSystemTime - PlayerStartTime));
 
-  WriteLn('');
-  WriteLn(Format('%s v%s (%s) by %s', [SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_DATE, SCRIPT_AUTHOR]));
-  WriteLn(Format('Time Running: %.2dh %.2dm %.2ds', [Hr, Mn, Sc]));
-  WriteLn('');
+  // Script title.
+  S := '~'
+     + Format('%s v%s (%s) by %s~', [SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_DATE, SCRIPT_AUTHOR])
+     + Format('Time Running: %.2dh %.2dm %.2ds~', [Hr, Mn, Sc])
+     + '~';
 
-  // Print long report.
+  // Long report.
   if (LowerCase(ReportType) = 'long') or (LowerCase(ReportType) = 'both') then
   begin
-    WriteLn('+--------------+--------+----------+---------+----------+------------+--------+--------+');
-    WriteLn('| Name         | Active | Worked   | Magic   | Smithing | Bar Type   | Made   | Banked |');
-    WriteLn('+--------------+--------+----------+---------+----------+------------+--------+--------+');
-    for I := 0 to High(Players) do
+    S := S + '+--------------+----------+----------+----------+--------+---------+---------+---------+-------+-------+----------+----------+----------+~';
+    S := S + '| Name         | Status   | Worked   | Bar Type | Made   | M Exp   | S Exp   | T Exp   | M Lvl | S Lvl | M Exp/Hr | S Exp/Hr | T Exp/Hr |~';
+    S := S + '+--------------+----------+----------+----------+--------+---------+---------+---------+-------+-------+----------+----------+----------+~';
+
+    HiPlayer := High(Players);
+    for I := 0 to HiPlayer do
       with Players[I] do
       begin
-        ConvertTime(Worked, Hr, Mn, Sc);
-        WriteLn('| ' + Padr(Name, 13) + '| ' + Padr(BoolToStr(Active), 7) + '| '
-              + Format('%.2d:%.2d:%.2d', [Hr, Mn, Sc]) + ' | ' + Padr(GroupDigits(TIA[TISTAT][IMXP]), 8)
-              + '| ' + Padr(GroupDigits(TIA[TISTAT][ISXP]), 9) + '| ' + Padr(LowerCase(Strings[SBAR]), 11)
-              + '| ' + Padr(GroupDigits(TIA[TISTAT][IBM]), 7) + '| ' + Padr(GroupDigits(Banked), 7) + '|');
-        WriteLn('+--------------+--------+----------+---------+----------+------------+--------+--------+');
+        if (I = CurrentPlayer) then
+          T := CW
+        else
+          T := Worked;
+        ConvertTime(T, Hr, Mn, Sc);
+        S := S + '| ' + Padr(Name, 13)
+           + '| ' + Padr(Status, 9)
+           + '| ' + Format('%.2d:%.2d:%.2d', [Hr, Mn, Sc])
+           + ' | ' + Padr(Strings[SBAR], 9)
+           + '| ' + Padr(GroupDigits(TIA[TISTAT][IBM]), 7)
+           + '| ' + Padr(GroupDigits(TIA[TISTAT][IMXP]), 8)
+           + '| ' + Padr(GroupDigits(TIA[TISTAT][ISXP]), 8)
+           + '| ' + Padr(GroupDigits(TIA[TISTAT][ITXP]), 8)
+           + '| ' + Padr(GroupDigits(TIA[TISTAT][IMLV]), 6)
+           + '| ' + Padr(GroupDigits(TIA[TISTAT][ISLV]), 6)
+           + '| ' + Padr(GroupDigits(TIA[TISTAT][IMPH]), 9)
+           + '| ' + Padr(GroupDigits(TIA[TISTAT][ISPH]), 9)
+           + '| ' + Padr(GroupDigits(TIA[TISTAT][ITPH]), 9)
+           + '|~';
+        S := S + '+--------------+----------+----------+----------+--------+---------+---------+---------+-------+-------+----------+----------+----------+~';
       end;
-    WriteLn('');
+    S := S + '~';
   end;
 
-  // Print short report.
+  // Short report.
   if (LowerCase(ReportType) = 'short') or (LowerCase(ReportType) = 'both') then
   begin
     with Players[CurrentPlayer] do
     begin
-      WriteLn('+----------------+----------------------+');
-      WriteLn('| Current Player | ' + Padr(Name, 21) + '|');
-      WriteLn('+----------------+----------------------+');
-      WriteLn('|         Active | ' + Padr(BoolToStr(Active), 21) + '|');
-      WriteLn('|         Worked | ' + Padr(Format('%.2d:%.2d:%.2d', [Hr, Mn, Sc]), 21) + '|');
-      WriteLn('|         Banked | ' + Padr(GroupDigits(Banked), 21) + '|');
-      WriteLn('|            Bar | ' + Padr(LowerCase(Strings[SBAR]), 21) + '|');
-      WriteLn('|           Made | ' + Padr(GroupDigits(TIA[TISTAT][IBM]), 21) + '|');
-      WriteLn('|      Magic Exp | ' + Padr(GroupDigits(TIA[TISTAT][IMXP]) + ' (' + GroupDigits(TIA[TISTAT][IMPH]) + '/hr)', 21) + '|');
-      WriteLn('|   Smithing Exp | ' + Padr(GroupDigits(TIA[TISTAT][ISXP]) + ' (' + GroupDigits(TIA[TISTAT][ISPH]) + '/hr)', 21) + '|');
-      WriteLn('|      Total Exp | ' + Padr(GroupDigits(TIA[TISTAT][ITXP]) + ' (' + GroupDigits(TIA[TISTAT][ITPH]) + '/hr)', 21) + '|');
-      WriteLn('|     Magic Lvls | ' + Padr(GroupDigits(TIA[TISTAT][IMLV]), 21) + '|');
-      WriteLn('|  Smithing Lvls | ' + Padr(GroupDigits(TIA[TISTAT][ISLV]), 21) + '|');
-      WriteLn('+----------------+----------------------+');
+      ConvertTime(CW, Hr, Mn, Sc);
+      S := S + '+----------------+---------------------+~'
+         + '| Current Player | ' + Padr(Name, 20) + '|~'
+         + '+----------------+---------------------+~'
+         + '|         Status | ' + Padr(Status, 20) + '|~'
+         + '|         Worked | ' + Padr(Format('%.2d:%.2d:%.2d', [Hr, Mn, Sc]), 20) + '|~'
+         + '|         Banked | ' + Padr(GroupDigits(Banked), 20) + '|~'
+         + '|            Bar | ' + Padr(Strings[SBAR], 20) + '|~'
+         + '|           Made | ' + Padr(GroupDigits(TIA[TISTAT][IBM]), 20) + '|~'
+         + '|      Magic Exp | ' + Padr(GroupDigits(TIA[TISTAT][IMXP]) + ' (' + GroupDigits(TIA[TISTAT][IMPH]) + '/hr)', 20) + '|~'
+         + '|   Smithing Exp | ' + Padr(GroupDigits(TIA[TISTAT][ISXP]) + ' (' + GroupDigits(TIA[TISTAT][ISPH]) + '/hr)', 20) + '|~'
+         + '|      Total Exp | ' + Padr(GroupDigits(TIA[TISTAT][ITXP]) + ' (' + GroupDigits(TIA[TISTAT][ITPH]) + '/hr)', 20) + '|~'
+         + '|     Magic Lvls | ' + Padr(GroupDigits(TIA[TISTAT][IMLV]), 20) + '|~'
+         + '|  Smithing Lvls | ' + Padr(GroupDigits(TIA[TISTAT][ISLV]), 20) + '|~'
+         + '+----------------+---------------------+~'
+         + '~';
     end;
-    WriteLn('');
+  end;
+
+  // Output report.
+{$IFNDEF DEBUG}
+  ClearReport;
+{$ENDIF}
+  SA := Explode('~', S);
+  for I := 0 to High(SA) do
+  begin
+{$IFDEF DEBUG}
+    WriteLn(SA[I]);
+{$ELSE}
+    AddToReport(SA[I]);
+{$ENDIF}
   end;
 end;
 
@@ -700,182 +982,13 @@ begin
 end;
 
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-function SetupPlayer: Boolean;
-Contributors: Bixby Sayz
-Description: Load dtms, and calculate how many bars per load for current player.
-Date Created: 2012-01-01. By Bixby Sayz. RS2 Build 695.
-Last Modification: 2012-01-09. By Bixby Sayz. RS2 Build 696.
-Note: Assumes nature runes will be in inventory slot 0. (Which affects how many
-      bars we can make each trip)
-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
-function SetupPlayer: Boolean;
-var
-  Options: TBooleanArray;  // Magic options.
-  SortOrder: String;       // Magic sort order.
-  Tol: Integer;            // Bitmap tolerance. Not used.
-  I: Integer;              // Loop counter.
-begin
-  Result := False;
-{$IFDEF DEBUG}
-  WriteString('SetupPlayer', '');
-{$ENDIF}
-
-  with Players[CurrentPlayer] do
-  begin
-    // Set initial starting time.
-    TIA[TISTAT][IST] := GetTimeRunning;
-
-    // Figure out what ores to use, how many ores per trip, and load dtms.
-    case LowerCase(Strings[SBAR]) of
-      'bronze': begin
-                  Integers[IPRI] := LoadSmithingItem(dtmOre_Copper, Tol);
-                  Integers[ISEC] := LoadSmithingItem(dtmOre_Tin, Tol);
-                  Integers[IBAR] := LoadSmithingItem(dtmBar_Bronze, Tol);
-                  Integers[IBPT] := 13;
-                  Booleans[BSEC] := True;
-                  Extendeds[ESXP] := 6.2;
-                end;
-      'iron': begin
-                Integers[IPRI] := LoadSmithingItem(dtmOre_Iron, Tol);
-                Integers[IBAR] := LoadSmithingItem(dtmBar_Iron, Tol);
-                Booleans[BSEC] := False;
-                Integers[IBPT] := 27;
-                Extendeds[ESXP] := 12.5;
-              end;
-      'steel': begin
-                 Integers[IPRI] := LoadSmithingItem(dtmOre_Iron, Tol);
-                 Integers[ISEC] := LoadSmithingItem(dtmOre_Coal, Tol);
-                 Integers[IBAR] := LoadSmithingItem(dtmBar_Steel, Tol);
-                 Integers[IBPT] := 9;
-                 Booleans[BSEC] := True;
-                 Extendeds[ESXP] := 17.5;
-               end;
-      'mith', 'mithril': begin
-                           Integers[IPRI] := LoadSmithingItem(dtmOre_Mithril, Tol);
-                           Integers[ISEC] := LoadSmithingItem(dtmOre_Coal, Tol);
-                           Integers[IBAR] := LoadSmithingItem(dtmBar_Mithril, Tol);
-                           Integers[IBPT] := 5;
-                           Booleans[BSEC] := True;
-                           Extendeds[ESXP] := 30;
-                         end;
-      'addy', 'adamant': begin
-                           Integers[IPRI] := LoadSmithingItem(dtmOre_Adamantite, Tol);
-                           Integers[ISEC] := LoadSmithingItem(dtmOre_Coal, Tol);
-                           Integers[IBAR] := LoadSmithingItem(dtmBar_Adamant, Tol);
-                           Integers[IBPT] := 3;
-                           Booleans[BSEC] := True;
-                           Extendeds[ESXP] := 37.5;
-                         end;
-      'rune': begin
-                Integers[IPRI] := LoadSmithingItem(dtmOre_Runite, Tol);
-                Integers[ISEC] := LoadSmithingItem(dtmOre_Coal, Tol);
-                Integers[IBAR] := LoadSmithingItem(dtmBar_Rune, Tol);
-                Integers[IBPT] := 3;
-                Booleans[BSEC] := True;
-                Extendeds[ESXP] := 50;
-              end;
-      'silver': begin
-                  Integers[IPRI] := LoadSmithingItem(dtmOre_Silver, Tol);
-                  Integers[IBAR] := LoadSmithingItem(dtmBar_Silver, Tol);
-                  Integers[IBPT] := 27;
-                  Booleans[BSEC] := False;
-                  Extendeds[ESXP] := 13.7;
-                end;
-      'gold': begin
-                Integers[IPRI] := LoadSmithingItem(dtmOre_Gold, Tol);
-                Integers[IBAR] := LoadSmithingItem(dtmBar_Gold, Tol);
-                Integers[IBPT] := 27;
-                Booleans[BSEC] := False;
-                Extendeds[ESXP] := 22.5;
-              end;
-      'blurite': begin
-                   Integers[IPRI] := LoadSmithingItem(dtmOre_Blurite, Tol);
-                   Integers[IBAR] := LoadSmithingItem(dtmBar_Blurite, Tol);
-                   Integers[IBPT] := 27;
-                   Booleans[BSEC] := False;
-                   Extendeds[ESXP] := 8;
-                 end;
-      else
-        WriteString('SetupPlayer', 'Invalid bar to make (' + Strings[0] + ').');
-      end;
-
-    // Setup optimized click pattern for # of bars.
-    TIA[TICLK] := GetClickPattern(Integers[IBPT]);
-
-    // Get initial experience/levels.
-    GetPlayerExpLevels(False);
-
-    // Switch to magic tab.
-    if not WaitForTab(Tab_Magic, True) then
-    begin
-      WriteString('SetupPlayer', 'Failed to switch to magic tab.');
-      Exit;
-    end;
-
-    // Set spells to optimum sort order.
-    case Integers[IBPT] of
-      3: begin
-           Options := [False, False, False, True, True];
-           SortOrder := 'combat';
-         end;
-      5: begin
-           Options := [False, False, True, False, True];
-           SortOrder := 'level';
-         end;
-      9: begin
-           Options := [False, True, False, False, True];
-           SortOrder := 'level';
-         end;
-      13: begin
-            Options := [False, True, True, True, True];
-            SortOrder := 'level';
-          end;
-      27: begin
-            Options := [False, True, True, True, True];
-            SortOrder := 'combat';
-          end;
-    // Failsafe. Just set things back to defaults.
-    else
-      begin
-        Options := [False, True, True, True, True];
-        SortOrder := 'level';
-      end;
-    end;
-    if not SetMagicOptions(Options, SortOrder) then
-    begin
-      WriteString('SetupPlayer', 'Failed to set magic options.');
-      Exit;
-    end;
-
-    // Locate superheat spell icon.
-{$IFDEF DEBUG}
-    WriteString('SetupPlayer', 'Locate spell icon.');
-{$ENDIF}
-    for I := 0 to 4 do
-    begin
-      if FindDTM(SuperHeatDTM, SuperHeatPos.X, SuperHeatPos.Y, MIX1, MIY1, MIX2, MIY2) then
-        Break;
-      WaitRR(750, 1000);
-    end;
-    if (I > 4) then
-    begin
-      WriteString('SetupPlayer', 'Failed to locate spell icon.');
-      Exit;
-    end;
-  end;
-
-  // Success.
-  Result := True;
-end;
-
-{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 function MyWithdraw(Amount: Integer; Coords: TPoint): Boolean;
 Contributors: Bixby Sayz
 Description: Withdraws item.
 Date Created: 2012-01-04, By Bixby Sayz. RS2 Build 696.
 Last Modification: 2012-01-04, By Bixby Sayz. RS2 Build 696.
 Note: OSI's withdraw will miscalculate the bounds of the item if there are
-      several tab separators visibile on the screen, throwing the calculations
+      several tab separators visible on the screen, throwing the calculations
       off. This is a workaround.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 function MyWithdraw(Amount: Integer; Coords: TPoint): Boolean;
@@ -926,7 +1039,7 @@ begin
         end;
 
         // Wait for "Enter amount" text appear.
-        T := GetSystemTime + RandomRange(2500, 5000);
+        T := GetSystemTime + RandomRange(7500, 10000);
         repeat
           WaitRR(75, 100);
           if (GetSystemTime > T) then
@@ -952,7 +1065,7 @@ function DoBanking: Boolean;
 Contributors: Bixby Sayz
 Description: Bank bars and withdraw ores.
 Date Created: 2012-01-01. By Bixby Sayz. RS2 Build 695.
-Last Modification: 2012-01-08. By Bixby Sayz. RS2 Build 696.
+Last Modification: 2012-01-12. By Bixby Sayz. RS2 Build 698.
 Note: Assumes nature runes will be in inventory slot 0.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 function DoBanking: Boolean;
@@ -979,7 +1092,7 @@ begin
     for I := 0 to 1 do
     begin
       OpenBank(Players[CurrentPlayer].Integers[IBNK]);
-      T := GetSystemTime + RandomRange(2500, 5000);
+      T := GetSystemTime + RandomRange(7500, 10000);
       repeat
         WaitRR(25, 50);
         if (GetSystemTime > T) then
@@ -1002,7 +1115,6 @@ begin
       Inc(Banked);
       Amount := CountInvItemsDTM(Integers[IBAR]);
       IncEx(TIA[TISTAT][IBM], Amount);
-      CalcPlayerExpGain(True);
 
       // Exclude nature rune in slot 0 when depositing.
       ExcludeSlots := [0];
@@ -1080,7 +1192,7 @@ begin
 
       // If we attempt a second withdraw before the menu from the first attempt
       // completely disappears it will fail. Wait for menu to go away.
-      WaitFunc(@OptionBoxExists, False, 25, 50, 2500, 5000);
+      WaitFunc(@OptionBoxExists, False, 25, 50, 7500, 10000);
 
       // Withdraw secondary ore.
       if Booleans[BSEC] and (not InvFull) then
@@ -1103,12 +1215,29 @@ begin
           WriteString('DoBanking', 'Failed to withdraw secondary ore.');
           Exit;
         end;
+
+        // Count primary ores in inventory and generate optimized click pattern.
+        // This allows us to adapt to the situation where some but not all of
+        // the primary ore was withdrawn (because we ran out of ore).
+        TIA[TICLK] := GetClickPattern(CountInvItemsDTM(Integers[IPRI]));
       end;
 
     finally
       // Close bank.
       if BankScreen then
         CloseBank(True);
+      // Gametabs are hidden when we bank and reappear when we close the bank.
+      // Wait for them to reappear so we don't get a false positive on random
+      // checking if we check for a random right afterwards.
+      T := GetSystemTime + RandomRange(7500, 10000);
+      repeat
+        WaitRR(25, 50);
+        if (GetSystemTime > T) then
+        begin
+          WriteString('DoBanking', 'Failed to close bank.');
+          Exit;
+        end;
+      until TabExists(Tab_Magic);
     end;
   end;
 end;
@@ -1118,7 +1247,7 @@ function DoSuperHeat: Boolean;
 Contributors: Bixby Sayz
 Description: Superheats ores in inventory.
 Date Created: 2012-01-01. By Bixby Sayz. RS2 Build 695.
-Last Modification: 2012-01-09. By Bixby Sayz. RS2 Build 696.
+Last Modification: 2012-01-11. By Bixby Sayz. RS2 Build 697.
 Note: Assumes nature runes will be in inventory slot 0.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 function DoSuperHeat: Boolean;
@@ -1141,8 +1270,8 @@ begin
 {$IFDEF DEBUG}
       WriteString('DoSuperHeat', 'Move mouse to spell.');
 {$ENDIF}
-      P.X := RandomRange((SuperHeatPos.X - 5), (SuperHeatPos.X + 5));
-      P.Y := RandomRange((SuperHeatPos.Y - 5), (SuperHeatPos.Y + 5));
+      P.X := RandomRange((TIA[TIOTH][ISHX] - 5), (TIA[TIOTH][ISHX] + 5));
+      P.Y := RandomRange((TIA[TIOTH][ISHY] - 5), (TIA[TIOTH][ISHY] + 5));
       MMouse(P.X, P.Y, 0, 0);
 
       // Now wait for magic tab. This includes a check for randoms so no need to
@@ -1156,7 +1285,7 @@ begin
       // Check superheat spell is enabled (we have runes).
       for J := 0 to 4 do
       begin
-        if SimilarColors(11594734, GetColor(SuperHeatPos.X, SuperHeatPos.Y), 5) then
+        if SimilarColors(11594734, GetColor(TIA[TIOTH][ISHX], TIA[TIOTH][ISHY]), 10) then
           Break;
         WaitRR(200, 300);
       end;
@@ -1172,7 +1301,6 @@ begin
       if LeveledUp then
       begin
         WriteString('DoSuperHeat', 'Level up detected.');
-        GetPlayerExpLevels(True);
         WaitForTab(Tab_Magic, True);
       end;
 
@@ -1211,7 +1339,6 @@ begin
     if LeveledUp then
     begin
       WriteString('DoSuperHeat', 'Level up detected.');
-      GetPlayerExpLevels(True);
       WaitForTab(Tab_Magic, True);
     end;
 
@@ -1220,11 +1347,182 @@ begin
 end;
 
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function SetupPlayer: Boolean;
+Contributors: Bixby Sayz
+Description: Load dtms, and calculate how many bars per load for current player.
+Date Created: 2012-01-01. By Bixby Sayz. RS2 Build 695.
+Last Modification: 2012-01-12. By Bixby Sayz. RS2 Build 698.
+Note: Assumes nature runes will be in inventory slot 0. (Which affects how many
+      bars we can make each trip)
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function SetupPlayer: Boolean;
+var
+  Options: TBooleanArray;  // Magic options.
+  SortOrder: String;       // Magic sort order.
+  DTM: Integer;            // Superheat spell icon.
+  P: TPoint;               // Location of superheat spell icon.
+  Tol: Integer;            // Bitmap tolerance. Not used.
+  I: Integer;              // Loop counter.
+begin
+  Result := False;
+{$IFDEF DEBUG}
+  WriteString('SetupPlayer', '');
+{$ENDIF}
+
+  with Players[CurrentPlayer] do
+  begin
+    // Figure out what ores to use, how many ores per trip, and load dtms.
+    case LowerCase(Strings[SBAR]) of
+      'bronze': begin
+                  Integers[IPRI] := LoadSmithingItem(dtmOre_Copper, Tol);
+                  Integers[ISEC] := LoadSmithingItem(dtmOre_Tin, Tol);
+                  Integers[IBAR] := LoadSmithingItem(dtmBar_Bronze, Tol);
+                  Integers[IBPT] := 13;
+                  Booleans[BSEC] := True;
+                  Extendeds[ESXP] := 6.2;
+                end;
+      'iron': begin
+                Integers[IPRI] := LoadSmithingItem(dtmOre_Iron, Tol);
+                Integers[IBAR] := LoadSmithingItem(dtmBar_Iron, Tol);
+                Booleans[BSEC] := False;
+                Integers[IBPT] := 27;
+                Extendeds[ESXP] := 12.5;
+              end;
+      'steel': begin
+                 Integers[IPRI] := LoadSmithingItem(dtmOre_Iron, Tol);
+                 Integers[ISEC] := LoadSmithingItem(dtmOre_Coal, Tol);
+                 Integers[IBAR] := LoadSmithingItem(dtmBar_Steel, Tol);
+                 Integers[IBPT] := 9;
+                 Booleans[BSEC] := True;
+                 Extendeds[ESXP] := 17.5;
+               end;
+      'mith', 'mithril': begin
+                           Integers[IPRI] := LoadSmithingItem(dtmOre_Mithril, Tol);
+                           Integers[ISEC] := LoadSmithingItem(dtmOre_Coal, Tol);
+                           Integers[IBAR] := LoadSmithingItem(dtmBar_Mithril, Tol);
+                           Integers[IBPT] := 5;
+                           Booleans[BSEC] := True;
+                           Extendeds[ESXP] := 30;
+                         end;
+      'addy', 'adamant': begin
+                           Integers[IPRI] := LoadSmithingItem(dtmOre_Adamantite, Tol);
+                           Integers[ISEC] := LoadSmithingItem(dtmOre_Coal, Tol);
+                           Integers[IBAR] := LoadSmithingItem(dtmBar_Adamant, Tol);
+                           Integers[IBPT] := 3;
+                           Booleans[BSEC] := True;
+                           Extendeds[ESXP] := 37.5;
+                         end;
+      'rune': begin
+                Integers[IPRI] := LoadSmithingItem(dtmOre_Runite, Tol);
+                Integers[ISEC] := LoadSmithingItem(dtmOre_Coal, Tol);
+                Integers[IBAR] := LoadSmithingItem(dtmBar_Rune, Tol);
+                Integers[IBPT] := 3;
+                Booleans[BSEC] := True;
+                Extendeds[ESXP] := 50;
+              end;
+      'silver': begin
+                  Integers[IPRI] := LoadSmithingItem(dtmOre_Silver, Tol);
+                  Integers[IBAR] := LoadSmithingItem(dtmBar_Silver, Tol);
+                  Integers[IBPT] := 27;
+                  Booleans[BSEC] := False;
+                  Extendeds[ESXP] := 13.7;
+                end;
+      'gold': begin
+                Integers[IPRI] := LoadSmithingItem(dtmOre_Gold, Tol);
+                Integers[IBAR] := LoadSmithingItem(dtmBar_Gold, Tol);
+                Integers[IBPT] := 27;
+                Booleans[BSEC] := False;
+                Extendeds[ESXP] := 22.5;
+              end;
+      'blurite': begin
+                   Integers[IPRI] := LoadSmithingItem(dtmOre_Blurite, Tol);
+                   Integers[IBAR] := LoadSmithingItem(dtmBar_Blurite, Tol);
+                   Integers[IBPT] := 27;
+                   Booleans[BSEC] := False;
+                   Extendeds[ESXP] := 8;
+                 end;
+      else
+        WriteString('SetupPlayer', 'Invalid bar to make (' + Strings[0] + ').');
+    end;
+
+    // Get initial experience/levels.
+    GetPlayerExpLevels;
+
+    // Switch to friends tab.
+    if not WaitForTab(Tab_Friends, True) then
+    begin
+      WriteString('SetupPlayer', 'Failed to switch to friends tab.');
+      Exit;
+    end;
+
+    // Determine if we are on a members world. (We are not trusting info in
+    // players record, we are going to make sure).
+    Member := CheckMembersWorld;
+
+    // Setup optimized click pattern for # of bars and determine optimal
+    // spellbook sort order.
+    TIA[TICLK] := GetClickPattern(Integers[IBPT]);
+    GetSortOrder(Integers[IBPT], Member, Options, SortOrder);
+
+    // Switch to magic tab.
+    if not WaitForTab(Tab_Magic, True) then
+    begin
+      WriteString('SetupPlayer', 'Failed to switch to magic tab.');
+      Exit;
+    end;
+
+    // Sort spellbook.
+    if not SetMagicOptions(Options, SortOrder) then
+    begin
+      WriteString('SetupPlayer', 'Failed to set magic options.');
+      Exit;
+    end;
+
+    // Move mouse away so mouseover text doesn't obscure spell icon.
+    MMouse(MCX1, MCY1, MCX2, MCY2);
+
+    // Locate superheat spell icon.
+    if (TIA[TIOTH][ISHX] = 0) then
+    begin
+{$IFDEF DEBUG}
+      WriteString('SetupPlayer', 'Locate spell icon.');
+{$ENDIF}
+      DTM := DTMFromString('78DA630C656260F064644006EF5E6F60E007D' +
+           '220D1FF40C0180E54E382AAC69F8D898115AA060418E3806ADC50' +
+           'D5E83132A3AA8904AAF1435563C784A626900835BE40355E98763' +
+           '120A901002AA20BC2');
+      // Because we just rearranged the spellbook the icon is moving around as
+      // the spellbook sorts itself. If we find the spell icon in the same place
+      // twice then assume we have it.
+      for I := 0 to 4 do
+      begin
+        P.X := TIA[TIOTH][ISHX];
+        P.Y := TIA[TIOTH][ISHY];
+        if FindDTM(DTM, TIA[TIOTH][ISHX], TIA[TIOTH][ISHY], MIX1, MIY1, MIX2, MIY2) then
+          if (P.X = TIA[TIOTH][ISHX]) and (P.Y = TIA[TIOTH][ISHY]) then
+            Break;
+        WaitRR(250, 500);
+      end;
+      FreeDTM(DTM);
+      if (I > 4) then
+      begin
+        WriteString('SetupPlayer', 'Failed to locate spell icon.');
+        Exit;
+      end;
+    end;
+  end;
+
+  // Success.
+  Result := True;
+
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 function ActivityLoop(TimeToRunScript: Integer): Boolean;
 Contributors: Bixby Sayz
 Description: Main activity loop for current player.
 Date Created: 2012-01-01. By Bixby Sayz. RS2 Build 695.
-Last Modification: 2012-01-09. By Bixby Sayz. RS2 Build 696.
+Last Modification: 2012-01-10. By Bixby Sayz. RS2 Build 696.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 function ActivityLoop(TimeToRunScript: Integer): Boolean;
 var
@@ -1252,7 +1550,6 @@ begin
   if not SetupPlayer then
   begin
     WriteString('ActivityLoop', 'Failed to setup player');
-    Exit;
   end;
 
   // Wrap in try..finally to ensure we free dtms.
@@ -1279,32 +1576,33 @@ begin
         Exit;
       end;
 
-      // Do short report.
+      // Calculate experience gain and do short report.
+      CalcExpPerHour;
       DoReport('short');
 
       // Is it time for a break?
       if (TimeToRunPlayer > 0) then
       begin
         Result := (GetSystemTime > TimeToRunPlayer);
-{$IFDEF DEBUG}
         if Result then
         begin
+{$IFDEF DEBUG}
           WriteString('ActivityLoop', 'Player break time reached.');
+{$ENDIF}
           Break;
         end;
-{$ENDIF}
       end
       else
         if (TimeToRunScript > 0) then
         begin
           Result := (GetSystemTime > TimeToRunScript);
-{$IFDEF DEBUG}
           if Result then
           begin
+{$IFDEF DEBUG}
             WriteString('ActivityLoop', 'Total script time reached.');
+{$ENDIF}
             Break;
           end;
-{$ENDIF}
         end;
 
       // Check for randoms.
@@ -1327,11 +1625,6 @@ begin
     until Result;
 
   finally
-    // Update stats.
-    if LoggedIn then
-      GetPlayerExpLevels(False);
-    IncEx(Players[CurrentPlayer].Worked, (GetTimeRunning - Players[CurrentPlayer].TIA[TISTAT][IST]));
-    CalcPlayerExpGain(False);
     // Free dtms on the way out.
 {$IFDEF DEBUG}
     WriteString('ActivityLoop', 'Free player dtms.');
@@ -1348,7 +1641,7 @@ procedure MultiPlayerLoop;
 Contributors: Bixby Sayz
 Description: Cycle through players until all inactive.
 Date Created: 2012-01-01. By Bixby Sayz. RS2 Build 695.
-Last Modification: 2012-01-08. By Bixby Sayz. RS2 Build 696.
+Last Modification: 2012-01-13. By Bixby Sayz. RS2 Build 698.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure MultiPlayerLoop;
 var
@@ -1404,17 +1697,17 @@ begin
         Active := False;
       end;
 
-      // Logout player. If only one player then only logout to lobby.
+      // Logout player. If only one player then only exit to lobby.
       if Active and (ActivePlayers = 1) then
       begin
         ExitToLobby;
-        if not WaitFunc(@LobbyScreen, True, 25, 50, 2500, 5000) then
+        if not WaitFunc(@LobbyScreen, True, 25, 50, 7500, 10000) then
           ExitToLobby;
       end
       else
       begin
         Logout;
-        if not WaitFunc(@LoggedIn, False, 25, 50, 2500, 5000) then
+        if not WaitFunc(@LoggedIn, False, 25, 50, 7500, 10000) then
           Logout;
       end;
 
@@ -1425,6 +1718,9 @@ begin
         if (Status <> 'Random') then
           Status := 'Inactive';
 
+      // Update times and experience.
+      CalcExpPerHour;
+
       // Do report.
       DoReport('both');
 
@@ -1432,14 +1728,14 @@ begin
       if ((TimeBeforeBreak > 0) and (BreakTime > 0)) then
         if (ActivePlayers > 0) then
         begin
-          Status := 'On Break';
           // Generate randomized break time.
           T := Round(BreakTime * 60000 * 0.1);
           TimeToBreak := (BreakTime * 60000) + RandomRange((-T), T);
           // Take a break.
+{$IFDEF DEBUG}
           WriteString('MultiPlayerLoop', 'Breaking between players.');
+{$ENDIF}
           TakeABreak(TimeToBreak);
-          Status := 'Idle';
         end;
 
       // Have we gone over our total time?
@@ -1455,8 +1751,11 @@ begin
 {$IFDEF DEBUG}
       WriteString('MultiPlayerLoop', 'Switching to next player.');
 {$ENDIF}
-      if (ActivePlayers > 0) then
-        NextPlayer(Active);
+      if Active and (ActivePlayers = 1) then
+        MyLogin
+      else
+        if (ActivePlayers > 0) then
+          NextPlayer(Active);
     end;
   end;
 
@@ -1472,19 +1771,9 @@ Last Modification: 2012-01-04. By Bixby Sayz. RS2 Build 696.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure InitializeScript;
 begin
-  ClearDebug;
-  WriteLn(Format('%s v%s (%s) by %s', [SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_DATE, SCRIPT_AUTHOR]));
-  WriteLn('');
-
   SetUpOSI;
   OverideRandInvTab := True;
   DeclarePlayers;
-
-  SuperHeatDTM := DTMFromString('78DA630C656260F064644006EF5E6F60E002D' +
-                '220D1FF40C0180E54E382AAC69F8D898115AA060418E3806ADC50' +
-                'D5E83132A3AA8904AAF1435563C784A626900835BE40355E98763' +
-                '120A9010026E20BBD');
-  SuperHeatPos := Point(0, 0);
 
   ClearDebug;
   WriteLn(Format('%s v%s (%s) by %s', [SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_DATE, SCRIPT_AUTHOR]));
@@ -1500,7 +1789,6 @@ Last Modification: 2012-01-04. By Bixby Sayz. RS2 Build 696.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure ScriptTerminate;
 begin
-  FreeDTM(SuperHeatDTM);
   FreeOSI;
 end;
 
@@ -1508,6 +1796,10 @@ end;
 //////////      MAIN PROGRAM      ///////////
 /////////////////////////////////////////////
 begin
+  ClearDebug;
+  WriteLn(Format('%s v%s (%s) by %s', [SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_DATE, SCRIPT_AUTHOR]));
+  WriteLn('');
+
   InitializeScript;
   MultiPlayerLoop;
 end.
