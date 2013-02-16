@@ -1,13 +1,13 @@
 program bSuperHeater;
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-                O.S.I. Official SCAR Include - bsSuperHeater               v2.00
+                O.S.I. Official SCAR Include - bsSuperHeater               v2.01
 --------------------------------------------------------------------------------
 SCRIPT INFO
 --------------------------------------------------------------------------------
 Script Name:      bsSuperHeater
 Script Author(s): Bixby Sayz
-Script Version:   2.00
-Script Date:      April 8th, 2012. RS2 Build 711.  HAPPY EASTER !!!
+Script Version:   2.01
+Script Date:      April 9th, 2012. RS2 Build 711.
 Description:      Smelts ores using superheat spell (standard spellbook).
 
                   More scripts can be found at http://forums.scar-divi.com
@@ -54,10 +54,10 @@ SKILL/QUEST/ITEM REQUIREMENTS
 INSTRUCTIONS
 --------------------------------------------------------------------------------
 - Start in any supported bank.
-- Equip/weild your fire staff.
+- Equip/wield your fire staff.
 - Ores and nature runes must be visible in bank.
-- Comment/uncomment appropriate defines. (line 132).
-- Fill in account info in DeclarePlayers (line 256).
+- Comment/uncomment appropriate defines (line 136).
+- Fill in account info in DeclarePlayers (line 261).
 
 --------------------------------------------------------------------------------
 KNOWN ISSUES
@@ -69,6 +69,10 @@ KNOWN ISSUES
 --------------------------------------------------------------------------------
 VERSION HISTORY
 --------------------------------------------------------------------------------
+2012-04-09 - v2.01
+- Fixed spell slot for members' worlds.
+- Fixed spin ticket issue. Detects free spin + double spin tickets.
+
 2012-04-08 - v2.00
 - Added coalbag support.
 - Now supports all osi banks plus soul wars, gamers' grotto (clan wars portal),
@@ -150,9 +154,9 @@ CREDITS
 const
   // Constants for script info.
   SCRIPT_NAME = 'bsSuperHeater';
-  SCRIPT_VERSION = '2.00';
+  SCRIPT_VERSION = '2.01';
   SCRIPT_AUTHOR = 'Bixby Sayz';
-  SCRIPT_DATE = '2012-04-08';
+  SCRIPT_DATE = '2012-04-09';
   
   // Constants for spellbook.
   SPELL_COLOR = 228588;  // Color of superheat spell.
@@ -237,7 +241,8 @@ var
   BreakTime: Integer;            // How long to break between players.
   NatureDTM: Integer;            // Nature rune dtm.
   CoalbagDTM: Integer;           // Coalbag dtm.
-  SpinTicketDTM: Integer;        // Spin ticket dtm.
+  FreeSpinTicketDTM: Integer;    // Free spin ticket dtm.
+  DoubleSpinTicketDTM: Integer;  // Double spin ticket dtm.
   {$IFDEF PROFIT}
     NatureGE: Integer;           // Nature rune ge price.
   {$ENDIF}
@@ -283,7 +288,7 @@ begin
     Pin := '';                         // Bank Pin. ('' for none)
     Member := False;                   // Members?
     Integers[IBAR] := dtmBar_Steel;    // Bar to make.
-    Integers[IBNK] := Loc_VWB;         // Bank to use.
+    Integers[IBNK] := Loc_AKB;         // Bank to use.
     Booleans[BBAG] := False;           // Use coalbag?
     Active := True;                    // Use this player?
   end;
@@ -511,7 +516,7 @@ procedure SetupPlayers;
 Contributors: Bixby Sayz
 Description: Setup additional player info.
 Date Created: March 29th, 2012. By Bixby Sayz. RS2 Build 710.
-Last Modification: April 5th, 2012. By Bixby Sayz. RS2 Build 711.
+Last Modification: April 9th, 2012. By Bixby Sayz. RS2 Build 711.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure SetupPlayers;
 var
@@ -577,7 +582,7 @@ begin
       if Member then
       begin
         SpellPos := Point(646, 324);
-        SpellBox := Box(611, 313, 633, 335);
+        SpellBox := Box(635, 313, 657, 335);
       end
       else
       begin
@@ -828,15 +833,18 @@ procedure SetupScript;
 Contributors: Bixby Sayz
 Description: Initialize script.
 Date Created: December 29th, 2011. By Bixby Sayz. RS2 Build 695.
-Last Modification: April 8th, 2012. By Bixby Sayz. RS2 Build 711.
+Last Modification: April 9th, 2012. By Bixby Sayz. RS2 Build 711.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure SetupScript;
 begin
+  ClearDebug;
+  ClearReport;
   {$IFDEF DEBUG}
     WriteString('SetupScript', '');
   {$ENDIF}
-  ClearDebug;
-  ClearReport;
+
+  WriteLn(Format('%s v%s (%s) by %s', [SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_DATE, SCRIPT_AUTHOR]));
+  WriteLn('');
   
   // Setup osi.
   {$IFDEF DEBUG}
@@ -849,6 +857,12 @@ begin
   {$ENDIF}
   SetUpOSI;
   OverideRandInvTab := True;
+  {$IFDEF SMART}
+    WaitRR(2500, 3500);
+  {$ENDIF}
+
+  WriteLn(Format('%s v%s (%s) by %s', [SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_DATE, SCRIPT_AUTHOR]));
+  WriteLn('');
 
   // Setup players.
   {$IFDEF DEBUG}
@@ -858,9 +872,13 @@ begin
   SetupPlayers;
   
   // Load dtms.
+  {$IFDEF DEBUG}
+    WriteString('SetupScript', 'Load dtms.');
+  {$ENDIF}
   NatureDTM := DTMFromString('78DA632C646260C8606440064275A20C5C401A24FA1F08186B816A5250D5303030814998286335909F4F404D11905F4A404D1A905F8C5F0D008D8C0931');
   CoalbagDTM := DTMFromString('78DA63EC63606068614001334BC218B880342310FF0702C67E20A388010D30814946288F713A90A823A00664572F013520B7B41150D30524AAF0AB010003520BD1');
-  SpinTicketDTM := DTMFromString('78DA632C64626078C28002847839C0342394CF980F54739B010D30A1AAA901F21F13505300E47F20A0260ED33DE86A00D84D06E4');
+  FreeSpinTicketDTM := DTMFromString('78DA6364626460506540017E02EC0CFC401A28C3F01F081879812C4554352C0C1C609A11CA67E401B2D419B002B81A2E204B97809A6F40420D558E8905D52E001A420674');
+  DoubleSpinTicketDTM := DTMFromString('78DA632C64626078C28002847839C0342394CF980F54739B010D30A1AAA901F21F13505300E47F20A0260ED33DE86A00D84D06E4');
    
   // Initialize smart debug.
   {$IFDEF SMART}
@@ -878,7 +896,7 @@ procedure ScriptTerminate;
 Contributors: Bixby Sayz
 Description: Cleanup on script end. Called automatically by scar on script end.
 Date Created: December 29th, 2011. By Bixby Sayz. RS2 Build 695.
-Last Modification: April 8th, 2012. By Bixby Sayz. RS2 Build 711.
+Last Modification: April 9th, 2012. By Bixby Sayz. RS2 Build 711.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure ScriptTerminate;
 var
@@ -894,7 +912,8 @@ begin
     end;
   FreeDTM(NatureDTM);
   FreeDTM(CoalbagDTM);
-  FreeDTM(SpinTicketDTM);
+  FreeDTM(FreeSpinTicketDTM);
+  FreeDTM(DoubleSpinTicketDTM);
   
   // Disable smart debug.
   {$IFDEF SMART}
@@ -1218,7 +1237,7 @@ function FindSpinTicket(out Loc: TPoint): Boolean;
 Contributors: Bixby Sayz
 Description: Find and handle spin ticket. Returns true on found.
 Date Created: April 7th, 2012. By Bixby Sayz. RS2 Build 711.
-Last Modification: April 7th, 2012. By Bixby Sayz. RS2 Build 711.
+Last Modification: April 9th, 2012. By Bixby Sayz. RS2 Build 711.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 function FindSpinTicket(out Loc: TPoint): Boolean;
 begin
@@ -1228,7 +1247,15 @@ begin
     WriteString('FindSpinTicket', '');
   {$ENDIF}
   
-  Result := FindDTM(SpinTicketDTM, Loc.X, Loc.Y, MIX1, MIY1, MIX2, MIY2);
+  // Find free spin ticket.
+  Result := FindDTM(FreeSpinTicketDTM, Loc.X, Loc.Y, MIX1, MIY1, MIX2, MIY2);
+  {$IFDEF DEBUG}
+    if Result then
+      WriteString('FindSpinTicket', Format('Spin ticket found at (%d,%d).', [Loc.X, Loc.Y]));
+  {$ENDIF}
+
+  // Find double spin ticket.
+  Result := FindDTM(DoubleSpinTicketDTM, Loc.X, Loc.Y, MIX1, MIY1, MIX2, MIY2);
   {$IFDEF DEBUG}
     if Result then
       WriteString('FindSpinTicket', Format('Spin ticket found at (%d,%d).', [Loc.X, Loc.Y]));
@@ -2280,10 +2307,6 @@ end;
 //////////      MAIN PROGRAM      ///////////
 /////////////////////////////////////////////
 begin
-  ClearDebug;
-  WriteLn(Format('%s v%s (%s) by %s', [SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_DATE, SCRIPT_AUTHOR]));
-  WriteLn('');
-
   SetupScript;
   MultiPlayerLoop;
 end.
