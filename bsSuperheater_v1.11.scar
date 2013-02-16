@@ -1,13 +1,13 @@
 program bsSuperHeater;
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-                O.S.I. Official SCAR Include - bsSuperHeater               v1.10
+                O.S.I. Official SCAR Include - bsSuperHeater               v1.11
 --------------------------------------------------------------------------------
 SCRIPT INFO
 --------------------------------------------------------------------------------
 Script Name:      bsSuperHeater
 Script Author(s): Bixby Sayz
-Script Version:   1.10
-Script Date:      2012-01-13. RS2 Build 698. HAPPY FRIDAY THE 13TH !!!
+Script Version:   1.11
+Script Date:      2012-01-26. RS2 Build 699.
 Description:      Smelts ores using superheat spell (regular spellbook).
 
                   More scripts can be found at http://forums.scar-divi.com
@@ -22,6 +22,7 @@ FEATURES
 - Supports all ores/bars including blurite (just because I can).
 - Supports any bank supported by OSI.
 - Fast! And rock solid. The only thing that will kill this randoms.
+- Now with soul wars bank chest support! (use Loc_SW as bank location)
 
 --------------------------------------------------------------------------------
      IMPORTANT - IMPORTANT - IMPORTANT - IMPORTANT - IMPORTANT - IMPORTANT
@@ -56,8 +57,8 @@ INSTRUCTIONS
 - Equip/weild your fire staff.
 - Ores must be visible in bank. Closer to the right side of the bank will
   speed banking and increase your experience per hour (very) slightly.
-- Comment/uncomment appropriate defines. (line 157).
-- Fill in account info in DeclarePlayers (line 226).
+- Comment/uncomment appropriate defines. (line 182).
+- Fill in account info in DeclarePlayers (line 240).
 
 --------------------------------------------------------------------------------
 KNOWN ISSUES
@@ -68,11 +69,19 @@ KNOWN ISSUES
   screaming "I am a bot!") Blame OSI's banking routines.
 - On rare occasions random finding will falsely detect an unknown random
   immediately after banking. Fixed???
-- Sometimes fails to read experience from stats tab just before breaking.
+- Sometimes fails to read experience from stats tab. Fixed???
 
 --------------------------------------------------------------------------------
 VERSION HISTORY
 --------------------------------------------------------------------------------
+2012-01-26 - v1.11
+- Added soul wars bank chest support.
+- Fixed script continuing even if player setup failed.
+- Get experience hopefully fixed. Failsafe added to fall back to calculations
+  just in case.
+- Fixed issue with popup interfering with withdraw.
+- Added world switching.
+
 2012-01-13 - v1.10 - First Public Release
 - Fixed osi update breaking time worked.
 - Added workaround for "runescape has been reloaded".
@@ -100,9 +109,11 @@ VERSION HISTORY
 --------------------------------------------------------------------------------
 FUTURE REVISIONS
 --------------------------------------------------------------------------------
-- Urns (need to get my crafting up first).
+- Reworking of internals to make it more faster & more memory efficient.
+- Player form.
+- Manual random solving.
 - Coalbags. (unlikely unless someone wants to loan an account)
-- Player form. (not a priority)
+- Urns (need to get my crafting up first).
 
 --------------------------------------------------------------------------------
 CREDITS
@@ -170,9 +181,12 @@ Note: These rates were generated on a member server before I realized the
 /////////////////////////////////////////////
 const
   SCRIPT_NAME = 'bsSuperHeater';
-  SCRIPT_VERSION = '1.10';
-  SCRIPT_DATE = '2012-01-13';
+  SCRIPT_VERSION = '1.11';
+  SCRIPT_DATE = '2012-01-26';
   SCRIPT_AUTHOR = 'Bixby Sayz';
+
+  // Constants for bank locations.
+  Loc_SW = (Loc_GEB + 1);
 
   // Constants for referencing players array.
   SBAR = 0;    // Strings[0] = Which bar to make.
@@ -221,7 +235,7 @@ procedure DeclarePlayers;
 Contributors: Bixby Sayz
 Description: Setup your player(s) in here.
 Date Created: 2011-12-29. By Bixby Sayz. RS2 Build 695.
-Last Modification: 2012-01-09. By Bixby Sayz. RS2 Build 696.
+Last Modification: 2012-01-25. By Bixby Sayz. RS2 Build 699.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure DeclarePlayers;
 var
@@ -264,9 +278,9 @@ begin
     BoxRewards := ['mote', 'ostume', 'lamp', 'nowledge', 'oins'];  // Partial text for rewards, place in desired order.
     Active := True;
 
-    // bronze, iron, steel, mith, mithril, addy, adamant, rune, silver, gold, blurite(members)
+    // bronze, iron, steel, mith, mithril, addy, adamant, rune, silver, gold, blurite (members)
     Strings[0] := 'steel';             // Bar to make.
-    // loc_lbc, loc_akb, loc_feb, loc_fwb, loc_dyb, loc_veb, loc_vwb, loc_evb, loc_geb
+    // loc_lbc, loc_akb, loc_feb, loc_fwb, loc_dyb, loc_veb, loc_vwb, loc_evb, loc_geb, loc_sw
     Integers[0] := Loc_VWB;            // Bank to use.
   end;
 
@@ -368,7 +382,7 @@ Contributors: Bixby Sayz
 Description: Checks for randoms. Returns true on everything okay. Sets gametab
              to desired tab after solving random.
 Date Created: 2012-01-02. By Bixby Sayz. RS2 Build 695.
-Last Modification: 2012-01-13. By Bixby Sayz. RS2 Build 698.
+Last Modification: 2012-01-26. By Bixby Sayz. RS2 Build 699.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 function CheckRandoms: Boolean;
 var
@@ -432,7 +446,13 @@ begin
 
     // Reset things back to the way they were prior to the random.
     Rand := '';
-    ClickCompass(True);
+    if (Integers[IBNK] = Loc_SW) then
+    begin
+      MakeCompass(180);
+      SetAngle(True);
+    end
+    else
+      ClickCompass(True);
     SetGameTab(Tab_Magic);
   end;
 
@@ -788,12 +808,13 @@ procedure GetPlayerExpLevels;
 Contributors: Bixby Sayz
 Description: Get current experience and levels.
 Date Created: 2012-01-04, By Bixby Sayz. RS2 Build 696.
-Last Modification: 2012-01-10, By Bixby Sayz. RS2 Build 696.
+Last Modification: 2012-01-26, By Bixby Sayz. RS2 Build 699.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure GetPlayerExpLevels;
 var
   MagicXp: Integer;  // Magic experience.
   SmithXp: Integer;  // Smithing experience.
+  I: Integer;        // Loop counter.
 begin
 {$IFDEF DEBUG}
   WriteString('GetPlayerExpLevels', '');
@@ -815,12 +836,40 @@ begin
       Exit;
     end;
     GetAllLevels;
-    MagicXp := GetXP(Skill_Magic);
-    SmithXp := GetXP(Skill_Smithing);
-    if (MagicXp < 0) or (SmithXp < 0) then
+    // OSI sometimes fails to read experience. Wrap in a loop to work around
+    // this.
+    for I := 0 to 1 do
+    begin
+      MagicXp := GetXP(Skill_Magic);
+      if (MagicXp > (-1)) then
+        Break;
+    end;
+
+    // OSI sometimes fails to read experience. Wrap in a loop to work around
+    // this.
+    for I := 0 to 1 do
+    begin
+      SmithXp := GetXP(Skill_Smithing);
+      if (SmithXp > (-1)) then
+        Break;
+    end;
+
+{$IFDEF DEBUG}
+  WriteString('GetPlayerExpLevels', Format('Magic Exp: %d, Smithing Exp: %d.', [MagicXp, SmithXp]));
+{$ENDIF}
+    if (MagicXp < 1) or (SmithXp < 1) then
     begin
       WriteString('GetPlayerExpLevels', 'Failed to read experience.');
-      Exit;
+      // Fall back to calculations if reading experience fails.
+      if (TIA[TISTAT][ISME] > 0) then
+      begin
+        MagicXp := TIA[TISTAT][ICME];
+        SmithXp := TIA[TISTAT][ICSE];
+        Level[Skill_Magic] := TIA[TISTAT][ISML];
+        Level[Skill_Smithing] := TIA[TISTAT][ISSL];
+      end
+      else
+        Exit;
     end;
 
     // Get starting experience/levels.
@@ -982,6 +1031,172 @@ begin
 end;
 
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function FindBankChest(out Loc: TPoint): Boolean;
+Contributors: Bixby Sayz
+Description: Finds bank chest.
+Date Created: 2012-01-25. By Bixby Sayz. RS2 Build 699.
+Last Modification: 2012-01-25. By Bixby Sayz. RS2 Build 699.
+Note: Only tested on soul wars bank chest.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function FindBankChest(out Loc: TPoint): Boolean;
+var
+  OldCTS: Integer;      // Previous color tolerance speed (CTS).
+  OldHueMod: Extended;  // Previous hue modifier.
+  OldSatMod: Extended;  // Previous saturation modifier.
+  TPA: TPointArray;     // Points matching bank chest color.
+  ATPA: T2DPointArray;  // Combined list of points.
+  HiATPA: Integer;      // Size of points array.
+  B: TBox;              // Location of bank chest.
+  P: TPoint;            // Location of bank chest.
+  I: Integer;           // Loop counter.
+begin
+  Result := False;
+  Loc := Point(0, 0);
+{$IFDEF DEBUG}
+  WriteString('FindBankChest', '');
+{$ENDIF}
+  // Check logged in.
+  if not LoggedIn then
+  begin
+    WriteString('FindBankChest', 'Not logged in.');
+    Exit;
+  end;
+
+  // Setup color finding.
+  OldCTS := GetColorToleranceSpeed;
+  GetColorspeed2Modifiers(OldHueMod, OldSatMod);
+  ColorToleranceSpeed(2);
+
+  // Wrap in try...finally to make sure we set things back. (This does slow
+  // things down a bit)
+  try
+
+    // Find bank chest color.
+{$IFDEF DEBUG}
+    WriteString('FindBankChest', 'Find bank chest gray color.');
+{$ENDIF}
+    SetColorSpeed2Modifiers(0.35, 0.25);
+    if not FindColorsTolerance(TPA, 10790060, MSX1, MSY1, MSX2, MSY2, 7) then
+    begin
+      WriteString('FindBankChest', 'Failed to find gray color.');
+      Exit;
+    end;
+{$IFDEF DEBUG}
+    WriteString('FindBankChest', IntToStr(Length(TPA)) + ' points found.');
+{$ENDIF}
+
+  finally
+    // Set color finding back to the way we found it.
+    SetColorSpeed2Modifiers(OldHueMod, OldSatMod);
+    ColorToleranceSpeed(OldCTS);
+  end;
+
+  // Group colors according to proximity and sort by distance from center of
+  // main screen.
+  ATPA := SplitTPA(TPA, 10);
+  HiATPA := High(ATPA);
+  if (HiATPA  < 0) then
+  begin
+    WriteString('FindBankChest', 'Failed to group colors.');
+    Exit;
+  end;
+  SortATPAByMiddleEx(ATPA, Point(MSCX, MSCY));
+{$IFDEF DEBUG}
+  WriteString('FindBankChest', IntToStr(HiATPA + 1) + ' groupings.');
+{$ENDIF}
+
+  // Loop through each group.
+  for I := 0 to HiATPA do
+  begin
+    // Move mouse to bank chest and check uptext.
+    B := TPABounds(ATPA[I]);
+    MouseBox(B.X1, B.Y1, B.X2, B.Y2, MoveTo);
+    WaitRR(250, 500);
+    GetMousePos(P.X, P.Y);
+{$IFDEF DEBUG}
+    WriteString('FindBankChest', Format('Evaluating point (%d,%d). Uptext: "%s".', [P.X, P.Y, GetUpText]));
+{$ENDIF}
+    Result := IsUpTextMulti(['Bank', 'chest', 'hest']);
+    if Result then
+    begin
+{$IFDEF DEBUG}
+      WriteString('FindBankChest', Format('Found bank chest at (%d,%d).', [P.X, P.Y]));
+{$ENDIF}
+      Loc := P;
+      Exit;
+    end;
+  end;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function OpenBankChest: Boolean;
+Contributors: Bixby Sayz
+Description: Finds bank chest.
+Date Created: 2012-01-25. By Bixby Sayz. RS2 Build 699.
+Last Modification: 2012-01-25. By Bixby Sayz. RS2 Build 699.
+Note: Currently only supports soul wars bank chest.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function OpenBankChest: Boolean;
+var
+  P: TPoint;  // Location of bank chest.
+begin
+  Result := False;
+{$IFDEF DEBUG}
+  WriteString('OpenBankChest', '');
+{$ENDIF}
+  // Check logged in.
+  if not LoggedIn then
+  begin
+    WriteString('OpenBankChest', 'Not logged in.');
+    Exit;
+  end;
+
+  // Find bank chest color.
+{$IFDEF DEBUG}
+  WriteString('OpenBankChest', 'Find bank chest.');
+{$ENDIF}
+  if not FindBankChest(P) then
+  begin
+    WriteString('OpenBankChest', 'Failed to find bank chest.');
+    Exit;
+  end;
+
+  // Right click on bank chest.
+  Mouse(P.X, P.Y, 0, 0, False);
+
+  // Wait for menu to appear.
+{$IFDEF DEBUG}
+  WriteString('OpenBankChest', 'Wait for menu.');
+{$ENDIF}
+  if not WaitFunc(@OptionBoxExists, True, 25, 50, 7500, 10000) then
+  begin
+    WriteString('OpenBankChest', 'Failed to open menu.');
+    Exit;
+  end;
+
+  // Select "Use Bank chest" option.
+{$IFDEF DEBUG}
+  WriteString('OpenBankChest', 'Select "use".');
+{$ENDIF}
+  if not ChooseOptionMulti(['Bank', 'chest']) then
+  begin
+    WriteString('OpenBankChest', 'Failed to choose option.');
+    Exit;
+  end;
+
+  // Wait for bank screen to open.
+  Result := WaitFunc(@BankScreen, True, 25, 50, 7500, 10000);
+{$IFDEF DEBUG}
+  WriteString('OpenBankChest', 'Bank chest open: ' + BoolToStr(Result) + '.');
+{$ENDIF}
+  if not Result then
+  begin
+    WriteString('OpenBankChest', 'Failed to open bank chest.');
+    Exit;
+  end;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 function MyWithdraw(Amount: Integer; Coords: TPoint): Boolean;
 Contributors: Bixby Sayz
 Description: Withdraws item.
@@ -1041,7 +1256,7 @@ begin
         // Wait for "Enter amount" text appear.
         T := GetSystemTime + RandomRange(7500, 10000);
         repeat
-          WaitRR(75, 100);
+          WaitRR(25, 50);
           if (GetSystemTime > T) then
           begin
             WriteString('MyWithdrawDTM', '''Enter Amount'' failed to appear.');
@@ -1065,7 +1280,7 @@ function DoBanking: Boolean;
 Contributors: Bixby Sayz
 Description: Bank bars and withdraw ores.
 Date Created: 2012-01-01. By Bixby Sayz. RS2 Build 695.
-Last Modification: 2012-01-12. By Bixby Sayz. RS2 Build 698.
+Last Modification: 2012-01-25. By Bixby Sayz. RS2 Build 699.
 Note: Assumes nature runes will be in inventory slot 0.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 function DoBanking: Boolean;
@@ -1091,16 +1306,30 @@ begin
     // on bank booth to open bank, so adjust for that.
     for I := 0 to 1 do
     begin
-      OpenBank(Players[CurrentPlayer].Integers[IBNK]);
+      if (Integers[IBNK] = Loc_SW) then
+      begin
+{$IFDEF DEBUG}
+        WriteString('DoBanking', 'Open bank chest.');
+{$ENDIF}
+        OpenBankChest;
+      end
+      else
+      begin
+{$IFDEF DEBUG}
+        WriteString('DoBanking', 'Open bank.');
+{$ENDIF}
+        OpenBank(Integers[IBNK]);
+      end;
       T := GetSystemTime + RandomRange(7500, 10000);
       repeat
         WaitRR(25, 50);
         if (GetSystemTime > T) then
           Break;
       until BankScreen;
-      if not BankScreen then
-        if not CheckRandoms then
-          Exit;
+      if BankScreen then
+        Break;
+      if not CheckRandoms then
+        Exit;
     end;
     if not BankScreen then
     begin
@@ -1173,16 +1402,8 @@ begin
           Amount := Withdraw_All
         else
           Amount := Integers[IBPT];
-        for I := 0 to 2 do
-        begin
-          if FindDTM(Integers[IPRI], P.X, P.Y, MBX1, MBY1, MBX2, MBY2) then
-            Result := MyWithdraw(Amount, P);
-          if Result then
-            Break;
-          // Workaround for OSI withdraw sometimes failing for no obvious reason.
-          WaitRR(250, 500);
-          MouseBox(MBX1, MBY1, MBX2, MBY2, MoveTo);
-        end;
+        if FindDTM(Integers[IPRI], P.X, P.Y, MBX1, MBY1, MBX2, MBY2) then
+          Result := MyWithdraw(Amount, P);
         if not Result then
         begin
           WriteString('DoBanking', 'Failed to withdraw primary ore.');
@@ -1190,9 +1411,32 @@ begin
         end;
       end;
 
+      // Wait for primary ore to appear in inventory.
+      T := GetSystemTime + RandomRange(7500, 10000);
+      repeat
+        WaitRR(25, 50);
+        if (GetSystemTime > T) then
+        begin
+          WriteString('DoBanking', 'Timed out waiting for primary ore to appear in inventory.');
+          Exit;
+        end;
+        Result := (CountInvItemsDTM(Integers[IPRI]) > 0);
+      until Result;
+
       // If we attempt a second withdraw before the menu from the first attempt
       // completely disappears it will fail. Wait for menu to go away.
       WaitFunc(@OptionBoxExists, False, 25, 50, 7500, 10000);
+
+      // If mouse is hovering over buttons at bottom of bank popup can obscure
+      // our ore.
+      if PointInBox(P, Box(MBX1, MBY2, MBX2, (MBY2 + 30))) then
+      begin
+{$IFDEF DEBUG}
+        WriteString('DoBanking', 'Move mouse.');
+{$ENDIF}
+        MouseBox((MBX1 + 25), (MBY1 + 25), (MBX2 - 25), (MBY2 - 25), MoveTo);
+        WaitRR(75, 100);
+      end;
 
       // Withdraw secondary ore.
       if Booleans[BSEC] and (not InvFull) then
@@ -1200,26 +1444,42 @@ begin
 {$IFDEF DEBUG}
         WriteString('DoBanking', 'Withdraw secondary ore.');
 {$ENDIF}
-        for I := 0 to 2 do
-        begin
-          if FindDTM(Integers[ISEC], P.X, P.Y, MBX1, MBY1, MBX2, MBY2) then
-            Result := MyWithdraw(Withdraw_All, P);
-            if Result then
-              Break;
-          // Workaround for OSI withdraw sometimes failing for no obvious reason.
-          WaitRR(250, 500);
-          MouseBox(MBX1, MBY1, MBX2, MBY2, MoveTo);
-        end;
+        if FindDTM(Integers[ISEC], P.X, P.Y, MBX1, MBY1, MBX2, MBY2) then
+          Result := MyWithdraw(Withdraw_All, P);
         if not Result then
         begin
           WriteString('DoBanking', 'Failed to withdraw secondary ore.');
           Exit;
         end;
 
-        // Count primary ores in inventory and generate optimized click pattern.
+        // Wait for secondary ore to appear in inventory.
+        T := GetSystemTime + RandomRange(7500, 10000);
+        repeat
+          WaitRR(25, 50);
+          if (GetSystemTime > T) then
+          begin
+            WriteString('DoBanking', 'Timed out waiting for secondary ore to appear in inventory.');
+            Exit;
+          end;
+          Result := (CountInvItemsDTM(Integers[ISEC]) > 0);
+        until Result;
+
+        // Count primary ores and generate optimized click pattern.
         // This allows us to adapt to the situation where some but not all of
         // the primary ore was withdrawn (because we ran out of ore).
         TIA[TICLK] := GetClickPattern(CountInvItemsDTM(Integers[IPRI]));
+
+        // Sanity check. If there are no secondary ores in inventory we have
+        // a problem.
+        if Booleans[BSEC] then
+        begin
+          Result := (CountInvItemsDTM(Integers[ISEC]) > 0);
+          if not Result then
+          begin
+            WriteString('DoBanking', 'no secondary ore in inventory.');
+            Exit;
+          end;
+        end;
       end;
 
     finally
@@ -1257,6 +1517,7 @@ var
   I: Integer;              // Loop counter.
   J: Integer;              // Loop counter.
 begin
+
   Result := False;
 {$IFDEF DEBUG}
   WriteString('DoSuperHeat', '');
@@ -1331,6 +1592,7 @@ begin
 {$IFDEF DEBUG}
       WriteString('DoSuperHeat', 'Click ore.');
 {$ENDIF}
+
       Mouse(P.X, P.Y, 0, 0, True);
     end;
 
@@ -1550,6 +1812,7 @@ begin
   if not SetupPlayer then
   begin
     WriteString('ActivityLoop', 'Failed to setup player');
+    Exit;
   end;
 
   // Wrap in try..finally to ensure we free dtms.
@@ -1641,7 +1904,7 @@ procedure MultiPlayerLoop;
 Contributors: Bixby Sayz
 Description: Cycle through players until all inactive.
 Date Created: 2012-01-01. By Bixby Sayz. RS2 Build 695.
-Last Modification: 2012-01-13. By Bixby Sayz. RS2 Build 698.
+Last Modification: 2012-01-26. By Bixby Sayz. RS2 Build 699.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure MultiPlayerLoop;
 var
@@ -1684,8 +1947,14 @@ begin
       end;
 
 
-      // Set compass to north and camera to highest angle.
-      ClickCompass(True);
+      // Set compass.
+      if (Integers[IBNK] = Loc_SW) then
+      begin
+        MakeCompass(180);
+        SetAngle(True);
+      end
+      else
+        ClickCompass(True);
 
       // Perform activity for current player.
 {$IFDEF DEBUG}
@@ -1770,10 +2039,17 @@ Date Created: 2011-12-29. By Bixby Sayz. RS2 Build 695.
 Last Modification: 2012-01-04. By Bixby Sayz. RS2 Build 696.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure InitializeScript;
+var
+  I: Integer;  // Loop counter.
 begin
   SetUpOSI;
-  OverideRandInvTab := True;
   DeclarePlayers;
+
+  OverideRandInvTab := True;
+  LoginWorldSwitcher := True;
+  for I := 0 to High(Players) do
+    with Players[I] do
+      WorldInfo := [Member, 0, False];
 
   ClearDebug;
   WriteLn(Format('%s v%s (%s) by %s', [SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_DATE, SCRIPT_AUTHOR]));
