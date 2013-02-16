@@ -1,13 +1,22 @@
 program bSuperHeater;
+
+/////////////////////////////////////////////
+///////////      VERSION CHECK    ///////////
+/////////////////////////////////////////////
+
+{$IFNDEF SCAR335_UP}
+  {$ERROR [SCRIPT] SCAR v3.35 or higher is required to run this script}
+{$ENDIF}
+
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-                O.S.I. Official SCAR Include - bsSuperHeater               v2.01
+                O.S.I. Official SCAR Include - bsSuperHeater               v2.02
 --------------------------------------------------------------------------------
 SCRIPT INFO
 --------------------------------------------------------------------------------
 Script Name:      bsSuperHeater
 Script Author(s): Bixby Sayz
-Script Version:   2.01
-Script Date:      April 9th, 2012. RS2 Build 711.
+Script Version:   2.02
+Script Date:      August 21st, 2012. RS2 Build 731.
 Description:      Smelts ores using superheat spell (standard spellbook).
 
                   More scripts can be found at http://forums.scar-divi.com
@@ -39,9 +48,9 @@ USE THIS SCRIPT RESPONSIBLY
 --------------------------------------------------------------------------------
 REQUIREMENTS
 --------------------------------------------------------------------------------
-- SCAR 3.30 or higher.
+- SCAR 3.35 or higher. Earlier versions no longer supported.
 - Latest OSI includes.
-- Optional SMART.
+- Optional SMART (Currently broken).
 
 --------------------------------------------------------------------------------
 SKILL/QUEST/ITEM REQUIREMENTS
@@ -56,8 +65,8 @@ INSTRUCTIONS
 - Start in any supported bank.
 - Equip/wield your fire staff.
 - Ores and nature runes must be visible in bank.
-- Comment/uncomment appropriate defines (line 136).
-- Fill in account info in DeclarePlayers (line 261).
+- Comment/uncomment appropriate defines (line 152).
+- Fill in account info in DeclarePlayers (line 276).
 
 --------------------------------------------------------------------------------
 KNOWN ISSUES
@@ -65,10 +74,17 @@ KNOWN ISSUES
 - Randoms can and will stop this script. If running multiplayer then script will
   continue on with next player.
 - Sometimes hops to a different bank booth everytime it banks.
+- SMART support currently broken. A rewrite is in the works.
+- Script throws random errors unless DEBUG is turned on (related to mystery
+  SMART error). For now leave DEBUG turned on.
 
 --------------------------------------------------------------------------------
 VERSION HISTORY
 --------------------------------------------------------------------------------
+2012-08-21 - v2.02
+- Updated to SCAR 3.35.
+- SMART support broken in the process. Rewrite is needed.
+
 2012-04-09 - v2.01
 - Fixed spell slot for members' worlds.
 - Fixed spin ticket issue. Detects free spin + double spin tickets.
@@ -119,7 +135,7 @@ VERSION HISTORY
 --------------------------------------------------------------------------------
 FUTURE REVISIONS
 --------------------------------------------------------------------------------
-- Player form?
+- ???
 
 --------------------------------------------------------------------------------
 CREDITS
@@ -135,9 +151,16 @@ CREDITS
 /////////////////////////////////////////////
 {$DEFINE RS2}
 {$DEFINE OSI_COLOR_ANTI_RANDOMS}  // Comment out to disable random handling.
-{$DEFINE SMART}                   // Comment out to disable smart client.
-//{$DEFINE DEBUG}                   // Comment out to disable debugging.
-{$DEFINE PROFIT}                  // Comment out to disable calculating profit.
+//{$DEFINE SMART}                   // SMART support currently broken. DO NOT USE !!!
+{$DEFINE DEBUG}                   // Comment out to disable debugging.
+//{$DEFINE PROFIT}                  // Comment out to disable calculating profit.
+
+{$IFDEF SMART}
+  {$ERROR [SCRIPT] SMART support is currently broken in this script. Do not use SMART.}
+{$ENDIF}
+{$IFNDEF DEBUG}
+  {$ERROR [SCRIPT] DEBUG must be left on (for now) until I get chance to rewrite this script.}
+{$ENDIF}
 
 /////////////////////////////////////////////
 /////////////      INCLUDES     /////////////
@@ -154,9 +177,9 @@ CREDITS
 const
   // Constants for script info.
   SCRIPT_NAME = 'bsSuperHeater';
-  SCRIPT_VERSION = '2.01';
+  SCRIPT_VERSION = '2.02';
   SCRIPT_AUTHOR = 'Bixby Sayz';
-  SCRIPT_DATE = '2012-04-09';
+  SCRIPT_DATE = '2012-08-21';
   
   // Constants for spellbook.
   SPELL_COLOR = 228588;  // Color of superheat spell.
@@ -248,7 +271,7 @@ var
   {$ENDIF}
   {$IFDEF SMART}
     SmartFont: Integer;          // Font to use drawing on smart canvas.
-    Logo: Integer;               // Logo for smart report.
+    Logo: TSCARBitmap;           // Logo for smart report.
   {$ENDIF}
   
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -288,7 +311,7 @@ begin
     Pin := '';                         // Bank Pin. ('' for none)
     Member := False;                   // Members?
     Integers[IBAR] := dtmBar_Steel;    // Bar to make.
-    Integers[IBNK] := Loc_AKB;         // Bank to use.
+    Integers[IBNK] := Loc_VWB;         // Bank to use.
     Booleans[BBAG] := False;           // Use coalbag?
     Active := True;                    // Use this player?
   end;
@@ -442,13 +465,13 @@ begin
 end;
 
 {=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-function MyFindColor(Color, Tol: Integer; HueMod, SatMod: Extended; UpText: TStringArray; out Loc: TPoint): Boolean;
+function MyFindColor(Color, Tol: Integer; HueMod, SatMod: Extended; UpText: TStrArray; out Loc: TPoint): Boolean;
 Contributors: Bixby Sayz
 Description: Find colour using aca2 and checking uptext.
 Date Created: January 25th, 2012. By Bixby Sayz. RS2 Build 699.
-Last Modification: April 8th, 2012. By Bixby Sayz. RS2 Build 711.
+Last Modification: August 21st, 2012. By Bixby Sayz. RS2 Build 731.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
-function MyFindColor(Color, Tol: Integer; HueMod, SatMod: Extended; UpText: TStringArray; out Loc: TPoint): Boolean;
+function MyFindColor(Color, Tol: Integer; HueMod, SatMod: Extended; UpText: TStrArray; out Loc: TPoint): Boolean;
 var
   OldCTS: Integer;      // Previous color tolerance speed (CTS).
   OldHueMod: Extended;  // Previous hue modifier.
@@ -472,7 +495,7 @@ begin
     {$IFDEF DEBUG}
       WriteString('MyFindColor', 'Locate color.');
     {$ENDIF}
-    if not FindColorsTolerance(TPA, Color, MSX1, MSY1, MSX2, MCY2, Tol) then
+    if not FindColorTolEx(TPA, Color, MSX1, MSY1, MSX2, MCY2, Tol) then
     begin
       WriteString('MyFindColor', 'Failed to locate color.');
       Exit;
@@ -516,7 +539,7 @@ procedure SetupPlayers;
 Contributors: Bixby Sayz
 Description: Setup additional player info.
 Date Created: March 29th, 2012. By Bixby Sayz. RS2 Build 710.
-Last Modification: April 9th, 2012. By Bixby Sayz. RS2 Build 711.
+Last Modification: August 21st, 2012. By Bixby Sayz. RS2 Build 731.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure SetupPlayers;
 var
@@ -534,7 +557,7 @@ var
   {$IFDEF DEBUG}
     PrimaryOre: Integer;    // Type of primary ore.
     SecondaryOre: Integer;  // Type of secondary ore.
-    Names: TStringArray;    // Names of ores/bars.
+    Names: TStrArray;       // Names of ores/bars.
   {$ENDIF}
 begin
   {$IFDEF DEBUG}
@@ -833,7 +856,7 @@ procedure SetupScript;
 Contributors: Bixby Sayz
 Description: Initialize script.
 Date Created: December 29th, 2011. By Bixby Sayz. RS2 Build 695.
-Last Modification: April 9th, 2012. By Bixby Sayz. RS2 Build 711.
+Last Modification: August 21st, 2012. By Bixby Sayz. RS2 Build 731.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure SetupScript;
 begin
@@ -850,10 +873,8 @@ begin
   {$IFDEF DEBUG}
     WriteString('SetupScript', 'Setup osi.');
   {$ENDIF}
-  {$IFDEF SMART}
-    SMART_Server := 10;
-  {$ELSE}
-    ActivateClient;
+  {$IFNDEF SMART}
+    GetClient.Activate;
   {$ENDIF}
   SetUpOSI;
   OverideRandInvTab := True;
@@ -882,12 +903,10 @@ begin
    
   // Initialize smart debug.
   {$IFDEF SMART}
-    {$IFDEF DEBUG}
-      SmartSetDebug(True);
-      SmartClearDebugCanvas;
-      SmartFont := LoadCharsFromFont2('Arial', 9, False, False, False, False);
-      Logo := BitmapFromString(32, 32, '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');
-    {$ENDIF}
+    SmartSetDebug(Smart_Client, True);
+    SmartClearDebug(Smart_Client);
+    SmartFont := LoadCharsFromFont2('Arial', 9, False, False, False, False);
+    Logo := TSCARBitmap.Create('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');
   {$ENDIF}
 end;
 
@@ -917,12 +936,10 @@ begin
   
   // Disable smart debug.
   {$IFDEF SMART}
-    {$IFDEF DEBUG}
-      FreeChars2(SmartFont);
-      FreeBitmap(Logo);
-      SmartClearDebugCanvas;
-      SmartSetDebug(False);
-    {$ENDIF}
+    FreeChars2(SmartFont);
+    Logo.Free;
+    SmartClearDebug(Smart_Client);
+    SmartSetDebug(Smart_Client, False);
   {$ENDIF}
   
   // Uninitalize osi.
@@ -1267,7 +1284,7 @@ function FindSquealIcon: Boolean;
 Contributors: Bixby Sayz
 Description: Find and close "play squeal of fortune" floating icon.
 Date Created: April 8th, 2012. By Bixby Sayz. RS2 Build 711.
-Last Modification: April 8th, 2012. By Bixby Sayz. RS2 Build 711.
+Last Modification: August 21st, 2012. By Bixby Sayz. RS2 Build 731.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 function FindSquealIcon: Boolean;
 var
@@ -1282,7 +1299,7 @@ begin
   {$IFDEF DEBUG}
     WriteString('FindSquealIcon', 'Find squeal icon.');
   {$ENDIF}
-  Result := not FindColorTolerance(P.X, P.Y, 7786666, MSX1, MSY1, MSX2, MCY2, 10);
+  Result := not FindColorTol(P.X, P.Y, 7786666, MSX1, MSY1, MSX2, MCY2, 10);
   if Result then
   begin
     {$IFDEF DEBUG}
@@ -1295,7 +1312,7 @@ begin
   {$IFDEF DEBUG}
     WriteString('FindSquealIcon', 'Find close button.');
   {$ENDIF}
-  if not FindColorTolerance(P.X, P.Y, 4440570, (P.X + 45), (P.Y + 10), (P.X + 70), (P.Y + 35), 12) then
+  if not FindColorTol(P.X, P.Y, 4440570, (P.X + 45), (P.Y + 10), (P.X + 70), (P.Y + 35), 12) then
   begin
     WriteString('FindSquealIcon', 'Failed to find close button.');
     Exit;
@@ -1311,11 +1328,11 @@ procedure DoReport;
 Contributors: Bixby Sayz
 Description: Progress report.
 Date Created: January 4th, 2012. By Bixby Sayz. RS2 Build 696.
-Last Modification: April 5th, 2012. By Bixby Sayz. RS2 Build 711.
+Last Modification: August 21st, 2012. By Bixby Sayz. RS2 Build 731.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure DoReport;
 var
-  S: TStringArray;     // Contents of report.
+  S: TStrArray;     // Contents of report.
   Hr: Integer;         // Hours.
   Mn: Integer;         // Minutes.
   Sc: Integer;         // Seconds.
@@ -1379,37 +1396,34 @@ procedure DoSmartReport;
 Contributors: Bixby Sayz
 Description: Progress report on smart canvas.
 Date Created: February 18th, 2012. By Bixby Sayz. RS2 Build 704.
-Last Modification: April 5th, 2012. By Bixby Sayz. RS2 Build 711.
+Last Modification: August 21st, 2012. By Bixby Sayz. RS2 Build 731.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 procedure DoSmartReport;
 var
-  S: string;        // Text to be drawn on smart.
-  TPA: TPointArray;  // Text as a tpa.
-  HiTpa: Integer;  // Size of text tpa.
-  Bitmap: Integer;  // Image to be painted onto smart.
-  Hr: Integer;      // Hours.
-  Mn: Integer;      // Minutes.
-  Sc: Integer;      // Seconds.
-  I: Integer;  // Loop counter.
+  S: string;            // Text to be drawn on smart.
+  TPA: TPointArray;     // Text as a tpa.
+  HiTpa: Integer;       // Size of text tpa.
+  Bitmap: TSCARBitmap;  // Image to be painted onto smart.
+  Hr: Integer;          // Hours.
+  Mn: Integer;          // Minutes.
+  Sc: Integer;          // Seconds.
+  I: Integer;           // Loop counter.
 begin
   {$IFDEF DEBUG}
     WriteString('DoSmartReport', '');
   {$ENDIF}
   
   // Create buffer to draw info onto first.
-//  {$IFDEF SCAR333_UP}
-//    Bitmap := CreateBitmap((MSX1 + MSX2), 50, 15245824);
-//  {$ELSE}
-    Bitmap := BitmapFromString((MSX1 + MSX2), 50, '');
-    FastDrawClear(Bitmap, 15245824);
-//  {$ENDIF}
+  Bitmap := TSCARBitmap.Create('');
+  Bitmap.SetSize((MSX1 + MSX2), 50);
+  Bitmap.Clear(15245824); 
   
   // Wrap in try...finally to ensure we free bitmap.
   try
     with Players[CurrentPlayer], PlayerInfo[CurrentPlayer] do
     begin
       // Draw logo.
-      FastDrawTransparent((MSX2 - 38), 8, Logo, Bitmap);
+      Logo.DrawTo(Bitmap, (MSX2 - 38), 8);
       
       // Generate and draw script info.
       ConvertTime(GetTimeRunning, Hr, Mn, Sc);
@@ -1417,7 +1431,7 @@ begin
       TPA := LoadTextTPA(S, SmartFont);
       HiTpa := High(TPA);
       for I := 0 to HiTPA do
-        FastSetPixel(Bitmap, (TPA[I].X + 4), (TPA[I].Y + 4), 1);
+        Bitmap.Pixels[(TPA[I].X + 4), (TPA[I].Y + 4)] := 1;
 
       // Generate and draw player info.
       ConvertTime(Worked, Hr, Mn, Sc);
@@ -1429,13 +1443,13 @@ begin
       TPA := LoadTextTPA(S, SmartFont);
       HiTpa := High(TPA);
       for I := 0 to HiTPA do
-        FastSetPixel(Bitmap, (TPA[I].X + 4), (TPA[I].Y + 25), 1);
+        Bitmap.Pixels[(TPA[I].X + 4), (TPA[I].Y + 25)] := 1;
       
       // Draw info on debug canvas.
-      SmartDebugBitmap(Bitmap, 0, MSY2);
+      SmartDebugBitmapEx(Smart_Client, Bitmap, 0, MSY2);
     end;
   finally
-    FreeBitmap(Bitmap);
+    Bitmap.Free;
   end;
 end;
 {$ENDIF}
@@ -1612,7 +1626,7 @@ function MyWithdraw(ItemDTM, Amount: Integer): Boolean;
 Contributors: Bixby Sayz
 Description: Locates item by dtm in bank and withdraws.
 Date Created: January 4th, 2012. By Bixby Sayz. RS2 Build 696.
-Last Modification: March 29th, 2012. By Bixby Sayz. RS2 Build 710.
+Last Modification: August 21st, 2012. By Bixby Sayz. RS2 Build 731.
 Note: Assumes bank is open.
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
 function MyWithdraw(ItemDTM, Amount: Integer): Boolean;
@@ -1692,7 +1706,7 @@ begin
             WriteString('MyWithdrawDTM', '''Enter Amount'' failed to appear.');
             Exit;
           end;
-          FindColors(TextTPA, 0, MCX1, MCY1, MCX2, MCY2);
+          FindColorEx(TextTPA, 0, MCX1, MCY1, MCX2, MCY2);
         until FindTextTPAinTPA('Enter', ScreenChars, TextTPA, ClickPos.X, ClickPos.Y);
         TypeSend(IntToStr(Amount));
       end;
