@@ -1,0 +1,2289 @@
+program bSuperHeater;
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                O.S.I. Official SCAR Include - bsSuperHeater               v2.00
+--------------------------------------------------------------------------------
+SCRIPT INFO
+--------------------------------------------------------------------------------
+Script Name:      bsSuperHeater
+Script Author(s): Bixby Sayz
+Script Version:   2.00
+Script Date:      April 8th, 2012. RS2 Build 711.  HAPPY EASTER !!!
+Description:      Smelts ores using superheat spell (standard spellbook).
+
+                  More scripts can be found at http://forums.scar-divi.com
+
+--------------------------------------------------------------------------------
+FEATURES
+--------------------------------------------------------------------------------
+- Smelts ores using superheat spell (standard spellbook).
+- Supports all ores/bars including blurite (just because I can).
+- Coalbag support.
+- Stats report includes magic/smithing experience and experience per hour.
+- Fully multiplayer.
+- Supports any bank supported by osi plus soul wars, gamers' grotter, duel
+  arena, and daemonheim.
+- Calculates profit/loss. Looks up latest mid price on ge. (This will trigger
+  a firewall warning)
+- Fast! And rock solid. The only thing that will kill this randoms.
+
+--------------------------------------------------------------------------------
+     IMPORTANT - IMPORTANT - IMPORTANT - IMPORTANT - IMPORTANT - IMPORTANT
+--------------------------------------------------------------------------------
+USE THIS SCRIPT RESPONSIBLY
+- Do not run this script for 3 days straight on a single player. Duh!
+- BE PATIENT when buying/selling supplies!!!
+- Buy your supplies AT OR BELOW mid price.
+- Sell your finished product AT OR ABOVE mid price.
+- Failure to do so will screw up the market for all of us. Don't be an idiot.
+
+--------------------------------------------------------------------------------
+REQUIREMENTS
+--------------------------------------------------------------------------------
+- SCAR 3.30 or higher.
+- Latest OSI includes.
+- Optional SMART.
+
+--------------------------------------------------------------------------------
+SKILL/QUEST/ITEM REQUIREMENTS
+--------------------------------------------------------------------------------
+- Level 43 Magic.
+- Fire staff equipped in weapon slot.
+- Ores and nature runes visible in bank.
+
+--------------------------------------------------------------------------------
+INSTRUCTIONS
+--------------------------------------------------------------------------------
+- Start in any supported bank.
+- Equip/weild your fire staff.
+- Ores and nature runes must be visible in bank.
+- Comment/uncomment appropriate defines. (line 132).
+- Fill in account info in DeclarePlayers (line 256).
+
+--------------------------------------------------------------------------------
+KNOWN ISSUES
+--------------------------------------------------------------------------------
+- Randoms can and will stop this script. If running multiplayer then script will
+  continue on with next player.
+- Sometimes hops to a different bank booth everytime it banks.
+
+--------------------------------------------------------------------------------
+VERSION HISTORY
+--------------------------------------------------------------------------------
+2012-04-08 - v2.00
+- Added coalbag support.
+- Now supports all osi banks plus soul wars, gamers' grotto (clan wars portal),
+  duel arena, and daemonheim.
+- Finds and deals with spin tickets and squeal floating icon.
+- Banking speed should be back to normal.
+- Now calculates profit/loss (optional).
+- Removed customized clicking. Performance gains were largely imaginary and not
+  worth the added complexity.
+- Streamlined script to make it more efficient/easier to maintain.
+
+2012-01-26 - v1.11
+- Added soul wars bank chest support.
+- Fixed script continuing even if player setup failed.
+- Get experience hopefully fixed. Failsafe added to fall back to calculations
+  just in case.
+- Fixed issue with popup interfering with withdraw.
+- Added world switching.
+
+2012-01-13 - v1.10 - First Public Release
+- Fixed osi update breaking time worked.
+- Added workaround for "runescape has been reloaded".
+- Tweaked reports layout/when to report.
+- Changed spellbook sorting to support both non-member/members.
+- Moved superheat spell location into player record.
+- Added experience chart to comments.
+- Fixed reporting incorrect time worked.
+- Fixed incorrect click pattern when low on ores.
+- Fixed sometimes failing to sort spellbook.
+- Fixed minor spacing issue in report.
+- Fixed mouseover text sometimes causing find spell icon to fail.
+- Fixed banking reporting success even when failed.
+- Fixed (i hope) lag sometimes causing accidental switch to objectives tab.
+- Increased the timeouts to make it more lag friendly.
+
+2012-01-09 - v1.00 - Private Release
+- Supports all ores/bars.
+- Optimized clicking.
+- Stats.
+- Multiplayer.
+
+2012-12-12 - v0.01 - Beta/Development Version
+
+--------------------------------------------------------------------------------
+FUTURE REVISIONS
+--------------------------------------------------------------------------------
+- Player form?
+
+--------------------------------------------------------------------------------
+CREDITS
+--------------------------------------------------------------------------------
+- Freddy for bringing us SCAR.
+- OSI Devs for the includes that make it possible.
+- Bixby Sayz for being insanely awesome.
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+
+/////////////////////////////////////////////
+//////////////      DEFINES    //////////////
+/////////////////////////////////////////////
+{$DEFINE RS2}
+{$DEFINE OSI_COLOR_ANTI_RANDOMS}  // Comment out to disable random handling.
+{$DEFINE SMART}                   // Comment out to disable smart client.
+//{$DEFINE DEBUG}                   // Comment out to disable debugging.
+{$DEFINE PROFIT}                  // Comment out to disable calculating profit.
+
+/////////////////////////////////////////////
+/////////////      INCLUDES     /////////////
+/////////////////////////////////////////////
+{$I OSI\OSI.scar}
+{$I OSI\RS2\Skill\Smithing.scar}
+{$IFDEF SMART}
+  {$I OSI\RS2\Misc\DebugSMART.scar}
+{$ENDIF}
+
+/////////////////////////////////////////////
+/////////////      CONSTANTS    /////////////
+/////////////////////////////////////////////
+const
+  // Constants for script info.
+  SCRIPT_NAME = 'bsSuperHeater';
+  SCRIPT_VERSION = '2.00';
+  SCRIPT_AUTHOR = 'Bixby Sayz';
+  SCRIPT_DATE = '2012-04-08';
+  
+  // Constants for spellbook.
+  SPELL_COLOR = 228588;  // Color of superheat spell.
+  
+  // Constants for bank locations.
+  Loc_SW = (Loc_GEB + 1);   // Soul wars (members only).
+  Loc_GG = (Loc_GEB + 2);   // Gamers' grotto (clan wars portal).
+  Loc_DA = (Loc_GEB + 3);   // Duel arena.
+  Loc_DH = (Loc_GEB + 4);   // Daemonheim.
+
+  // Constants for referencing players array.
+  IBAR = 0;    // Integers[0] = Which bar to make.
+  IBNK = 1;    // Integers[1] = Which bank to use.
+  BBAG = 0;    // Booleans[0] = Use coalbag?
+  
+  // Constant for smart client.
+  {$IFDEF SMART}
+    SMART_TIME = 19800000;  // When to reload smart client.
+  {$ENDIF}
+
+  // Constants for ge.
+  ITEMID_RUNE_NATURE = 561;     // Nature rune.
+  ITEMID_ORE_COPPER = 436;      // Copper ore.
+  ITEMID_ORE_TIN = 438;         // Tin ore.
+  ITEMID_ORE_IRON = 440;        // Iron ore.
+  ITEMID_ORE_MITHRIL = 447;     // Mithril ore.  
+  ITEMID_ORE_ADAMANTITE = 449;  // Adamantite ore.
+  ITEMID_ORE_RUNITE = 451;      // Runite ore.
+  ITEMID_ORE_COAL = 453;        // Coal.
+  ITEMID_ORE_SILVER = 442;      // Silver ore.
+  ITEMID_ORE_GOLD = 444;        // Gold ore.
+  ITEMID_BAR_BRONZE = 2349;     // Bronze bar.
+  ITEMID_BAR_IRON = 2351;       // Iron bar.
+  ITEMID_BAR_STEEL = 2353;      // Steel bar.
+  ITEMID_BAR_MITHRIL = 2359;    // Mithril bar.
+  ITEMID_BAR_ADAMANT = 2361;    // Adamant bar.
+  ITEMID_BAR_RUNE = 2363;       // Rune bar.
+  ITEMID_BAR_SILVER = 2355;     // Silver bar.
+  ITEMID_BAR_GOLD = 2357;       // Gold bar.
+  
+/////////////////////////////////////////////
+///////////      CUSTOM TYPES     ///////////
+/////////////////////////////////////////////
+type
+  TPlayerInfo = record
+    NumPrimary: Integer;      // # of primary ore to withdraw each time.
+    UseSecondary: Boolean;    // Use secondary ore?
+    PrimaryDTM: Integer;      // DTM of primary ore.
+    SecondaryDTM: Integer;    // DTM of secondary ore.
+    StartSlot: Integer;       // Inventory slot of first primary ore.
+    EndSlot: Integer;         // Inventory slot of last primary ore.
+    SpellPos: TPoint;         // Center of spell icon.
+    SpellBox: TBox;           // Bounds of spell icon on screen.
+    {$IFDEF PROFIT}
+      BarProfit: Integer;     // Profit/loss per bar.
+      Profit: Integer;        // Total profit/loss.
+    {$ENDIF}
+    BarsMade: Integer;        // Stat - bars made.
+    XpPerBar: Extended;       // Stat - smithing experience per bar.
+    MagicXp: Integer;         // Stat - Current magic experience.
+    MagicXpStart: Integer;    // Stat - Starting magic experience.
+    MagicXpGain: Integer;     // Stat - Magic experience gained.
+    MagicXpRate: Integer;     // Stat - Magic experience per hour.
+    MagicLvlStart: Integer;   // Stat - Starting magic level.
+    MagicLvlGain: Integer;    // Stat - Magic levels gained.
+    SmithXp: Integer;         // Stat - Current smithing experience.
+    SmithXpStart: Integer;    // Stat - Starting smithing experience.
+    SmithXpGain: Integer;     // Stat - Smithing experience gained.
+    SmithXpRate: Integer;     // Stat - Smithing experience per hour.
+    SmithLvlStart: Integer;   // Stat - Starting smithing level.
+    SmithLvlGain: Integer;    // Stat - Smithing levels gained.
+  end;
+  TPlayerInfoArray = array of TPlayerInfo;
+     
+/////////////////////////////////////////////
+/////////      GLOBAL VARIABLES     /////////
+/////////////////////////////////////////////
+var
+  PlayerInfo: TPlayerInfoArray;  // Additional player information.
+  ScriptTime: Integer;           // Total time to run script. 
+  PlayerTime: Integer;           // Time to run each player before breaking.
+  BreakTime: Integer;            // How long to break between players.
+  NatureDTM: Integer;            // Nature rune dtm.
+  CoalbagDTM: Integer;           // Coalbag dtm.
+  SpinTicketDTM: Integer;        // Spin ticket dtm.
+  {$IFDEF PROFIT}
+    NatureGE: Integer;           // Nature rune ge price.
+  {$ENDIF}
+  {$IFDEF SMART}
+    SmartFont: Integer;          // Font to use drawing on smart canvas.
+    Logo: Integer;               // Logo for smart report.
+  {$ENDIF}
+  
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+procedure DeclarePlayers;
+Contributors: Bixby Sayz
+Description: Setup your player(s) in here.
+Date Created: November 29th, 2011. By Bixby Sayz. RS2 Build 695.
+Last Modification: March 27th, 2012. By Bixby Sayz. RS2 Build 710.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+procedure DeclarePlayers;
+var
+  NumPlayers: Integer;  // Number of players.
+  I: Integer;           // Loop counter.
+begin
+  NumPlayers := 1;     // Change this to your number of players.
+  CurrentPlayer := 0;  // Starting player. (0=1st, 1=2nd, 2=3rd, etc)
+  ScriptTime := 0;     // Total time to run script (in minutes). (0 = run forever)
+  PlayerTime := 60;    // Time before taking a break (in minutes). (0 = no breaks)
+  BreakTime := 15;     // How long to break between players (in minutes). (0 = no break)
+
+  // DON'T TOUCH THIS PART!!!
+  SetLength(Players, NumPlayers);
+  for I := 0 to (NumPlayers - 1) do
+  with Players[I] do
+  begin
+    Status := 'Unknown';
+    SetLength(Integers, 2);
+    SetLength(Booleans, 1);
+  end;
+
+  // Setup player 0 (first player).
+  with Players[0] do
+  begin
+    Name := '';                        // In-game character name.
+    Login := ''                        // Login handle.
+    Pass := '';                        // Login password.
+    Pin := '';                         // Bank Pin. ('' for none)
+    Member := False;                   // Members?
+    Integers[IBAR] := dtmBar_Steel;    // Bar to make.
+    Integers[IBNK] := Loc_VWB;         // Bank to use.
+    Booleans[BBAG] := False;           // Use coalbag?
+    Active := True;                    // Use this player?
+  end;
+
+{ // Uncomment and add more players here.
+  
+  // Setup player 1 (second player).
+  with Players[1] do
+  begin
+    Name := '';                        // In-game character name.
+    Login := ''                        // Login handle.
+    Pass := '';                        // Login password.
+    Pin := '';                         // Bank Pin. ('' for none)
+    Member := False;                   // Members?
+    Integers[IBAR] := dtmBar_Steel;    // Bar to make.
+    Integers[IBNK] := Loc_VWB;         // Bank to use.
+    Booleans[BBAG] := False;           // Use coalbag?
+    Active := True;                    // Use this player?
+  end;
+
+  // Setup player 2 (third player).
+  with Players[2] do
+  begin
+    Name := '';                        // In-game character name.
+    Login := ''                        // Login handle.
+    Pass := '';                        // Login password.
+    Pin := '';                         // Bank Pin. ('' for none)
+    Member := False;                   // Members?
+    Integers[IBAR] := dtmBar_Steel;    // Bar to make.
+    Integers[IBNK] := Loc_VWB;         // Bank to use.
+    Booleans[BBAG] := False;           // Use coalbag?
+    Active := True;                    // Use this player?
+  end;
+}  
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+procedure WriteString(FuncName, Text: string);
+Contributors: Bixby Sayz
+Description: Writes string to debug window prepended by time running.
+Date Created: December 12th, 2011. By Bixby Sayz. RS2 Build 689.
+Last Modification: February 25th, 2012. By Bixby Sayz. RS2 Build 707.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+procedure WriteString(FuncName, Text: string);
+var
+  TimeRunning: Integer;   // Total time running.
+  Hours: Integer;         // Hours.
+  Minutes: Integer;       // Minutes.
+  Seconds: Integer;       // Seconds.
+  Milliseconds: Integer;  // Milliseconds.
+begin
+  TimeRunning := GetTimeRunning;
+  ConvertTime(TimeRunning, Hours, Minutes, Seconds);
+  Milliseconds := (TimeRunning - (Hours * 3600000) - (Minutes * 60000) - (Seconds * 1000));
+  WriteLn(Format('%.2d:%.2d:%.2d.%.3d [%s] %s', [Hours, Minutes, Seconds, Milliseconds, FuncName, Text]));
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function GroupDigits(Number: Integer): String;
+Contributors: Bixby Sayz
+Description: Format integer number with thousands separator.
+Date Created: January 4th, 2012. By Bixby Sayz. RS2 Build 696.
+Last Modification: January 4th, 2012. By Bixby Sayz. RS2 Build 696.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function GroupDigits(Number: Integer): String;
+begin
+  Result := Format('%0.0n', [Number * 1.0]);
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function WaitForTab(WhichTab: Integer; SwitchImmediately: Boolean): Boolean;
+Contributors: Bixby Sayz
+Description: Wait for desired gametab.
+Date Created: January 06th, 2012. By Bixby Sayz. RS2 Build 696.
+Last Modification: March 29rd, 2012. By Bixby Sayz. RS2 Build 710.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function WaitForTab(WhichTab: Integer; SwitchImmediately: Boolean): Boolean;
+var
+  TabBox: TBox;  // Bounds of tab.
+  T: Integer;    // Time counter.
+begin
+  Result := False;
+  {$IFDEF DEBUG}
+    WriteString('WaitForTab', '');
+  {$ENDIF}
+
+  // Wait for tab to become visible. (After banking the tabs take a second to
+  // reappear)
+  T := GetSystemTime + RandomRange(7500, 10000);
+  repeat
+    WaitRR(25, 50);
+    if (GetSystemTime > T) then
+      Exit;
+  until TabExists(WhichTab);
+
+  // Switch to game tab immediately or wait for it to switch on its own?
+  TabBox := GetTabBounds(WhichTab);
+  if SwitchImmediately then
+    MouseBox(TabBox.X1, TabBox.Y1, TabBox.X2, TabBox.Y2, ClickLeft);
+  
+  // Wait for game tab.
+  T := GetSystemTime + RandomRange(7500, 10000);
+  repeat
+    WaitRR(25, 50);
+    if (GetSystemTime > T) then
+      Break;
+    Result := (GetCurrentTab = WhichTab);
+  until Result;
+  if Result then
+    Exit;
+
+  // We're finished waiting. Switch to tab.
+  if not Result then
+  begin
+    MouseBox(TabBox.X1, TabBox.Y1, TabBox.X2, TabBox.Y2, ClickLeft);
+    WaitRR(750, 1000);
+    Result := (GetCurrentTab = WhichTab);
+  end;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function LookupGePrice(ItemId: Integer): Integer;
+Contributors: Bixby Sayz
+Description: Fetches item mid price from ge.
+Date Created: February 19th, 2012. By Bixby Sayz. RS2 Build 704.
+Last Modification: February 19th, 2012. By Bixby Sayz. RS2 Build 704.
+Note: I knew my old reflection scripts would come in handy again someday.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function LookupGePrice(ItemId: Integer): Integer;
+var
+  S: string;            // Text of webpage.
+  Multiplier: Integer;  // Multiplier (k=1000, m=1000000, b=1000000000).
+begin
+  Result := 0;
+
+  S := GetPage('http://services.runescape.com/m=itemdb_rs/viewitem.ws?obj=' + IntToStr(ItemID));
+  S := Trim(Between('<td>', '</td>', S));
+  if (Length(S) = 0) then
+    Exit;
+  S := Replace(S, ',', '');
+  case LowerCase(Copy(S, Length(S), 1)) of
+    'k': Multiplier := 1000;
+    'm': Multiplier := 1000000;
+    'b': Multiplier := 1000000000;
+    else
+      Multiplier := 1;
+  end;
+  if (Multiplier > 1) then
+    S := Left(S, (Length(S) - 1));
+  Result := Round(StrToFloatDef(S, 0) * Multiplier);
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function MyFindColor(Color, Tol: Integer; HueMod, SatMod: Extended; UpText: TStringArray; out Loc: TPoint): Boolean;
+Contributors: Bixby Sayz
+Description: Find colour using aca2 and checking uptext.
+Date Created: January 25th, 2012. By Bixby Sayz. RS2 Build 699.
+Last Modification: April 8th, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function MyFindColor(Color, Tol: Integer; HueMod, SatMod: Extended; UpText: TStringArray; out Loc: TPoint): Boolean;
+var
+  OldCTS: Integer;      // Previous color tolerance speed (CTS).
+  OldHueMod: Extended;  // Previous hue modifier.
+  OldSatMod: Extended;  // Previous saturation modifier.
+  TPA: TPointArray;     // Points matching bank chest color.
+  ATPA: T2DPointArray;  // Points grouped by proximity.
+  HiATPA: Integer;      // Number of groupings.
+  I: Integer;           // Loop counter.
+begin
+  Result := False;
+  Loc := Point(0, 0);
+  {$IFDEF DEBUG}
+    WriteString('MyFindColor', '');
+  {$ENDIF}
+
+  // Initialize color finding. Wrap in a try...finally so we set things back.
+  OldCTS := GetColorToleranceSpeed;
+  GetColorspeed2Modifiers(OldHueMod, OldSatMod);
+  ColorToleranceSpeed(2);
+  try
+    {$IFDEF DEBUG}
+      WriteString('MyFindColor', 'Locate color.');
+    {$ENDIF}
+    if not FindColorsTolerance(TPA, Color, MSX1, MSY1, MSX2, MCY2, Tol) then
+    begin
+      WriteString('MyFindColor', 'Failed to locate color.');
+      Exit;
+    end;
+    {$IFDEF DEBUG}
+      WriteString('MyFindColor', IntToStr(Length(TPA)) + ' points found.');
+    {$ENDIF}
+  finally
+    // Set color finding back to the way we found it.
+    SetColorSpeed2Modifiers(OldHueMod, OldSatMod);
+    ColorToleranceSpeed(OldCTS);
+  end;  
+
+  // Group points then loop through resulting array.
+  ATPA := SplitTPA(TPA, 5);
+  SortATPAByMiddleEx(ATPA, Point(MSCX, MSCY));
+  HiATPA := High(ATPA);
+  {$IFDEF DEBUG}
+    WriteString('MyFindColor', IntToStr(HiATPA + 1) + ' groupings.');
+  {$ENDIF}
+  
+  // Loop through groupings looking for uptext at that point.
+  for I := 0 to HiATPA do
+  begin
+    Loc := ATPA[I][0];
+    {$IFDEF DEBUG}
+      WriteString('MyFindColor', Format('Evaluating grouping %d: (%d,%d).', [I, Loc.X, Loc.Y]));
+    {$ENDIF}
+    MMouse(Loc.X, Loc.Y, 0, 0);
+    Result := IsUpTextMulti(UpText);
+    if Result then
+      Exit;
+  end;
+
+  // Failure.
+  WriteString('MyFindColor', 'Failed to locate color.');
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+procedure SetupPlayers;
+Contributors: Bixby Sayz
+Description: Setup additional player info.
+Date Created: March 29th, 2012. By Bixby Sayz. RS2 Build 710.
+Last Modification: April 5th, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+procedure SetupPlayers;
+var
+  HiPlayers: Integer;       // Length of players array.
+  I: Integer;               // Loop counter.
+  Tol: Integer;             // Bitmap tolerance. Not used.
+  {$IFDEF PROFIT}
+    OresGe: TIntArray;      // Cache - ore ge prices.
+    BarsGe: TIntArray;      // Cache - bar ge prices.
+    PrimaryGE: Integer;     // Primary ore ge price.
+    SecondaryGE: Integer;   // Secondary ore ge price.
+    BarGE: Integer;         // Bar ge price.
+    NumSecondary: Integer;  // # of secondary ore per bar.
+  {$ENDIF}
+  {$IFDEF DEBUG}
+    PrimaryOre: Integer;    // Type of primary ore.
+    SecondaryOre: Integer;  // Type of secondary ore.
+    Names: TStringArray;    // Names of ores/bars.
+  {$ENDIF}
+begin
+  {$IFDEF DEBUG}
+    WriteString('SetupPlayers', '');
+  {$ENDIF}
+  
+  // Setup additional player info.
+  HiPlayers := High(Players);
+  SetLength(PlayerInfo, (HiPlayers + 1));
+  {$IFDEF DEBUG}
+    Names := ['', 'Copper Ore', 'Tin Ore', 'Iron Ore', 'Silver Ore', 'Coal', 'Gold Ore', 'Mithril Ore', 'Adamantite Ore', 'Runite Ore', 'Blurite Ore', '', '', 'Bronze Bar', 'Iron Bar', 'Silver Bar', 'Steel Bar', 'Gold Bar', 'Mithril Bar', 'Adamant Bar', 'Rune Bar', 'Blurite Bar', '', ''];
+  {$ENDIF}
+  
+  // Lookup nature rune ge price.
+  {$IFDEF PROFIT}
+    NatureGE := LookupGePrice(ITEMID_RUNE_NATURE);
+    {$IFDEF DEBUG}
+      WriteString('SetupPlayers', 'Nature Rune: ' + IntToStr(NatureGe) + 'gp.');
+    {$ENDIF}
+  {$ENDIF}
+    
+  // To avoid looking up the same ores/bars over and over again when using
+  // multiplayer we'll cache the price of each as we look them up.
+  {$IFDEF PROFIT}
+    SetLength(OresGe, (dtmOre_Elemental + 1));
+    SetLength(BarsGe, (dtmBar_Elemental + 1));
+  {$ENDIF}
+  
+  // Loop through players.
+  for I := 0 to HiPlayers do
+    with Players[I], PlayerInfo[I] do
+    begin
+      {$IFDEF DEBUG}
+        WriteString('SetupPlayers', Format('Setup player %d (%s).', [I, Name]));
+      {$ENDIF}
+      
+      // Setup randoms.
+      LampSkill := 'magic';
+      BoxRewards := ['mote', 'ostume', 'lamp', 'nowledge', 'oins'];
+      
+      // Setup random world each time.
+      WorldInfo := [Member, 0, False];
+      
+      // Setup spell location.
+      if Member then
+      begin
+        SpellPos := Point(646, 324);
+        SpellBox := Box(611, 313, 633, 335);
+      end
+      else
+      begin
+        SpellPos := Point(622, 324);
+        SpellBox := Box(611, 313, 633, 335);
+      end;
+      
+      // Setup ore/bar info.
+      case Integers[IBAR] of
+        dtmBar_Bronze: begin
+                         XpPerBar := 6.2;
+                         NumPrimary := 13;
+                         UseSecondary := True;
+                         {$IFDEF DEBUG}
+                           {$IFDEF PROFIT}
+                             NumSecondary := 1;
+                           {$ENDIF}
+                           PrimaryOre := dtmOre_Copper;
+                           SecondaryOre := dtmOre_Tin;
+                         {$ENDIF}
+                         PrimaryDTM := LoadSmithingItem(dtmOre_Copper, Tol);
+                         SecondaryDTM := LoadSmithingItem(dtmOre_Tin, Tol);
+                         Booleans[BBAG] := False;
+                         {$IFDEF PROFIT}
+                           if (OresGe[dtmOre_Copper] = 0) then
+                             OresGe[dtmOre_Copper] := LookupGePrice(ITEMID_ORE_COPPER);
+                           PrimaryGe := OresGe[dtmOre_Copper];
+                           if (OresGe[dtmOre_Tin] = 0) then
+                             OresGe[dtmOre_Tin] := LookupGePrice(ITEMID_ORE_TIN);
+                           SecondaryGe := OresGe[dtmOre_Tin];
+                           if (BarsGe[dtmBar_Bronze] = 0) then
+                             BarsGe[dtmBar_Bronze] := LookupGePrice(ITEMID_BAR_BRONZE);
+                           BarGe := BarsGe[dtmBar_Bronze];
+                         {$ENDIF}
+                       end;
+        dtmBar_Iron: begin
+                       XpPerBar := 12.5;
+                       NumPrimary := 27;
+                       UseSecondary := False;
+                       {$IFDEF DEBUG}
+                         PrimaryOre := dtmOre_Iron;
+                         SecondaryOre := 0;
+                       {$ENDIF}
+                       PrimaryDTM := LoadSmithingItem(dtmOre_Copper, Tol);
+                       Booleans[BBAG] := False;
+                       {$IFDEF PROFIT}
+                         if (OresGe[dtmOre_Iron] = 0) then
+                           OresGe[dtmOre_Iron] := LookupGePrice(ITEMID_ORE_IRON);
+                         PrimaryGe := OresGe[dtmOre_Iron];
+                         SecondaryGe := 0;
+                         if (BarsGe[dtmBar_Iron] = 0) then
+                           BarsGe[dtmBar_Iron] := LookupGePrice(ITEMID_BAR_IRON);
+                         BarGe := BarsGe[dtmBar_Iron];
+                       {$ENDIF}
+                     end;
+        dtmBar_Steel: begin
+                        XpPerBar := 17.5;
+                        if Booleans[BBAG] then
+                          NumPrimary := 17
+                        else
+                          NumPrimary := 9;
+                        UseSecondary := True;
+                        {$IFDEF DEBUG}
+                          {$IFDEF PROFIT}
+                            NumSecondary := 2;
+                          {$ENDIF}
+                          PrimaryOre := dtmOre_Iron;
+                          SecondaryOre := dtmOre_Coal;
+                        {$ENDIF}
+                        PrimaryDTM := LoadSmithingItem(dtmOre_Iron, Tol);
+                        SecondaryDTM := LoadSmithingItem(dtmOre_Coal, Tol);
+                        {$IFDEF PROFIT}
+                          if (OresGe[dtmOre_Iron] = 0) then
+                            OresGe[dtmOre_Iron] := LookupGePrice(ITEMID_ORE_IRON);
+                          PrimaryGe := OresGe[dtmOre_Iron];
+                          if (OresGe[dtmOre_Coal] = 0) then
+                            OresGe[dtmOre_Coal] := LookupGePrice(ITEMID_ORE_COAL);
+                          SecondaryGe := OresGe[dtmOre_Coal];
+                          if (BarsGe[dtmBar_Steel] = 0) then
+                            BarsGe[dtmBar_Steel] := LookupGePrice(ITEMID_BAR_STEEL);
+                          BarGe := BarsGe[dtmBar_Steel];
+                        {$ENDIF}
+                      end;
+        dtmBar_Mithril: begin
+                          XpPerBar := 30;
+                          if Booleans[BBAG] then
+                            NumPrimary := 10
+                          else
+                            NumPrimary := 5;
+                          UseSecondary := True;
+                          {$IFDEF DEBUG}
+                            {$IFDEF PROFIT}
+                              NumSecondary := 4;
+                            {$ENDIF}
+                            PrimaryOre := dtmOre_Mithril;
+                            SecondaryOre := dtmOre_Coal;
+                          {$ENDIF}
+                          PrimaryDTM := LoadSmithingItem(dtmOre_Mithril, Tol);
+                          SecondaryDTM := LoadSmithingItem(dtmOre_Coal, Tol);
+                          {$IFDEF PROFIT}
+                            if (OresGe[dtmOre_Mithril] = 0) then
+                              OresGe[dtmOre_Mithril] := LookupGePrice(ITEMID_ORE_MITHRIL);
+                            PrimaryGe := OresGe[dtmOre_Mithril];
+                            if (OresGe[dtmOre_Coal] = 0) then
+                              OresGe[dtmOre_Coal] := LookupGePrice(ITEMID_ORE_COAL);
+                            SecondaryGe := OresGe[dtmOre_Coal];
+                            if (BarsGe[dtmBar_Mithril] = 0) then
+                              BarsGe[dtmBar_Mithril] := LookupGePrice(ITEMID_BAR_MITHRIL);
+                            BarGe := BarsGe[dtmBar_Mithril];
+                          {$ENDIF}
+                        end;
+        dtmBar_Adamant: begin
+                          XpPerBar := 37.5;
+                          if Booleans[BBAG] then
+                            NumPrimary := 7
+                          else
+                            NumPrimary := 3;
+                          UseSecondary := True;
+                          {$IFDEF DEBUG}
+                            {$IFDEF PROFIT}
+                              NumSecondary := 6;
+                            {$ENDIF}
+                            PrimaryOre := dtmOre_Adamantite;
+                            SecondaryOre := dtmOre_Coal;
+                          {$ENDIF}
+                          PrimaryDTM := LoadSmithingItem(dtmOre_Adamantite, Tol);
+                          SecondaryDTM := LoadSmithingItem(dtmOre_Coal, Tol);
+                          {$IFDEF PROFIT}
+                            if (OresGe[dtmOre_Adamantite] = 0) then
+                              OresGe[dtmOre_Adamantite] := LookupGePrice(ITEMID_ORE_ADAMANTITE);
+                            PrimaryGe := OresGe[dtmOre_Adamantite];
+                            if (OresGe[dtmOre_Coal] = 0) then
+                              OresGe[dtmOre_Coal] := LookupGePrice(ITEMID_ORE_COAL);
+                            SecondaryGe := OresGe[dtmOre_Coal];
+                            if (BarsGe[dtmBar_Adamant] = 0) then
+                              BarsGe[dtmBar_Adamant] := LookupGePrice(ITEMID_BAR_ADAMANT);
+                            BarGe := BarsGe[dtmBar_Adamant];
+                          {$ENDIF}
+                        end;
+        dtmBar_Rune: begin
+                       XpPerBar := 50;
+                       if Booleans[BBAG] then
+                         NumPrimary := 5
+                       else
+                         NumPrimary := 3;
+                       UseSecondary := True;
+                       {$IFDEF DEBUG}
+                         {$IFDEF PROFIT}
+                           NumSecondary := 8;
+                         {$ENDIF}
+                         PrimaryOre := dtmOre_Runite;
+                         SecondaryOre := dtmOre_Coal;
+                       {$ENDIF}
+                       PrimaryDTM := LoadSmithingItem(dtmOre_Runite, Tol);
+                       SecondaryDTM := LoadSmithingItem(dtmOre_Coal, Tol);
+                       {$IFDEF PROFIT}
+                         if (OresGe[dtmOre_Runite] = 0) then
+                           OresGe[dtmOre_Runite] := LookupGePrice(ITEMID_ORE_RUNITE);
+                         PrimaryGe := OresGe[dtmOre_Runite];
+                         if (OresGe[dtmOre_Coal] = 0) then
+                           OresGe[dtmOre_Coal] := LookupGePrice(ITEMID_ORE_COAL);
+                         SecondaryGe := OresGe[dtmOre_Coal];
+                         if (BarsGe[dtmBar_Rune] = 0) then
+                           BarsGe[dtmBar_Rune] := LookupGePrice(ITEMID_BAR_RUNE);
+                         BarGe := BarsGe[dtmBar_Rune];
+                       {$ENDIF}
+                     end;
+        dtmBar_Silver: begin
+                         XpPerBar := 13.7;
+                         NumPrimary := 27;
+                         UseSecondary := False;
+                         {$IFDEF DEBUG}
+                           PrimaryOre := dtmOre_Silver;
+                           SecondaryOre := 0;
+                         {$ENDIF}
+                         PrimaryDTM := LoadSmithingItem(dtmOre_Silver, Tol);
+                         Booleans[BBAG] := False;
+                         {$IFDEF PROFIT}
+                           if (OresGe[dtmOre_Silver] = 0) then
+                             OresGe[dtmOre_Silver] := LookupGePrice(ITEMID_ORE_SILVER);
+                           PrimaryGe := OresGe[dtmOre_Silver];
+                           SecondaryGe := 0;
+                           if (BarsGe[dtmBar_Silver] = 0) then
+                             BarsGe[dtmBar_Silver] := LookupGePrice(ITEMID_BAR_SILVER);
+                           BarGe := BarsGe[dtmBar_Silver];
+                         {$ENDIF}
+                       end;
+        dtmBar_Gold: begin
+                       XpPerBar := 22.5;
+                       NumPrimary := 27;
+                       UseSecondary := False;
+                       {$IFDEF DEBUG}
+                         PrimaryOre := dtmOre_Gold;
+                         SecondaryOre := 0;
+                       {$ENDIF}
+                       PrimaryDTM := LoadSmithingItem(dtmOre_Gold, Tol);
+                       Booleans[BBAG] := False;
+                       {$IFDEF PROFIT}
+                         if (OresGe[dtmOre_Gold] = 0) then
+                           OresGe[dtmOre_Gold] := LookupGePrice(ITEMID_ORE_GOLD);
+                         PrimaryGe := OresGe[dtmOre_Gold];
+                         SecondaryGe := 0;
+                         if (BarsGe[dtmBar_Gold] = 0) then
+                           BarsGe[dtmBar_Gold] := LookupGePrice(ITEMID_BAR_GOLD);
+                         BarGe := BarsGe[dtmBar_Gold];
+                       {$ENDIF}
+                     end;
+        dtmBar_Blurite: begin
+                          XpPerBar := 8;
+                          NumPrimary := 27;
+                          UseSecondary := False;
+                          {$IFDEF DEBUG}
+                            PrimaryOre := dtmOre_Blurite;
+                            SecondaryOre := 0;
+                          {$ENDIF}
+                          PrimaryDTM := LoadSmithingItem(dtmOre_Blurite, Tol);
+                          Booleans[BBAG] := False;
+                        end;
+        else
+        begin
+          WriteString('SetupPlayers', 'Invalid bar type. Setting player ' + IntToStr(I) + ' inactive.');
+          Active := False;
+        end;
+      end;
+
+      if Booleans[BBAG] then
+        StartSlot := 2
+      else
+        StartSlot := 1;
+      EndSlot := (StartSlot + NumPrimary - 1);
+      
+      // Calculate profit per bar.
+      {$IFDEF PROFIT}
+        BarProfit := (BarGE - NatureGE - PrimaryGE - (SecondaryGE * NumSecondary));
+      {$ENDIF}
+      {$IFDEF DEBUG}
+        {$IFDEF PROFIT}
+          WriteString('SetupPlayers', Format('%s: %dgp, %s: %dgp, %s: %dgp, Profit: %dgp.',  [Names[Integers[IBAR]], BarGe, Names[PrimaryOre], PrimaryGe, Names[SecondaryOre], SecondaryGe, BarProfit]));
+        {$ELSE}  
+          WriteString('SetupPlayers', Format('%s, %s, %s.',  [Names[Integers[IBAR]], Names[PrimaryOre], Names[SecondaryOre]]));
+        {$ENDIF}
+      {$ENDIF}
+    end;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+procedure SetupScript;
+Contributors: Bixby Sayz
+Description: Initialize script.
+Date Created: December 29th, 2011. By Bixby Sayz. RS2 Build 695.
+Last Modification: April 8th, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+procedure SetupScript;
+begin
+  {$IFDEF DEBUG}
+    WriteString('SetupScript', '');
+  {$ENDIF}
+  ClearDebug;
+  ClearReport;
+  
+  // Setup osi.
+  {$IFDEF DEBUG}
+    WriteString('SetupScript', 'Setup osi.');
+  {$ENDIF}
+  {$IFDEF SMART}
+    SMART_Server := 10;
+  {$ELSE}
+    ActivateClient;
+  {$ENDIF}
+  SetUpOSI;
+  OverideRandInvTab := True;
+
+  // Setup players.
+  {$IFDEF DEBUG}
+    WriteString('SetupScript', 'Setup players.');
+  {$ENDIF}
+  DeclarePlayers;
+  SetupPlayers;
+  
+  // Load dtms.
+  NatureDTM := DTMFromString('78DA632C646260C8606440064275A20C5C401A24FA1F08186B816A5250D5303030814998286335909F4F404D11905F4A404D1A905F8C5F0D008D8C0931');
+  CoalbagDTM := DTMFromString('78DA63EC63606068614001334BC218B880342310FF0702C67E20A388010D30814946288F713A90A823A00664572F013520B7B41150D30524AAF0AB010003520BD1');
+  SpinTicketDTM := DTMFromString('78DA632C64626078C28002847839C0342394CF980F54739B010D30A1AAA901F21F13505300E47F20A0260ED33DE86A00D84D06E4');
+   
+  // Initialize smart debug.
+  {$IFDEF SMART}
+    {$IFDEF DEBUG}
+      SmartSetDebug(True);
+      SmartClearDebugCanvas;
+      SmartFont := LoadCharsFromFont2('Arial', 9, False, False, False, False);
+      Logo := BitmapFromString(32, 32, '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');
+    {$ENDIF}
+  {$ENDIF}
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+procedure ScriptTerminate;
+Contributors: Bixby Sayz
+Description: Cleanup on script end. Called automatically by scar on script end.
+Date Created: December 29th, 2011. By Bixby Sayz. RS2 Build 695.
+Last Modification: April 8th, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+procedure ScriptTerminate;
+var
+  I: Integer;  // Loop counter.
+begin
+  // Free dtms.
+  for I := 0 to High(Players) do
+    with PlayerInfo[I] do
+    begin
+      FreeDTM(PrimaryDTM);
+      if UseSecondary then
+        FreeDTM(SecondaryDTM);
+    end;
+  FreeDTM(NatureDTM);
+  FreeDTM(CoalbagDTM);
+  FreeDTM(SpinTicketDTM);
+  
+  // Disable smart debug.
+  {$IFDEF SMART}
+    {$IFDEF DEBUG}
+      FreeChars2(SmartFont);
+      FreeBitmap(Logo);
+      SmartClearDebugCanvas;
+      SmartSetDebug(False);
+    {$ENDIF}
+  {$ENDIF}
+  
+  // Uninitalize osi.
+  FreeOSI;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function MyLogin: Boolean;
+Contributors: Bixby Sayz
+Description: Logs player in.
+Date Created: January 6th, 2012. By Bixby Sayz. RS2 Build 696.
+Last Modification: April 3rd, 2012. By Bixby Sayz. RS2 Build 711.
+Note: This is a workaround for login function conflicting with login property of
+      players array.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function MyLogin: Boolean;
+begin
+  Result := Login;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+procedure CalcExperienceRate;
+Contributors: Bixby Sayz
+Description: Calculate experience gain, experience per hour, etc.
+Date Created: January 8th, 2012. By Bixby Sayz. RS2 Build 696.
+Last Modification: April 5th, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+procedure CalcExperienceRate;
+var
+  T: Integer;  // Time counter.
+begin
+  with Players[CurrentPlayer], PlayerInfo[CurrentPlayer] do
+  begin
+    
+    // Calculate time worked.
+    T := GetSystemTime;
+    IncEx(Worked, (T - PlayerStartTime));
+    PlayerStartTime := T;
+
+    // Calculate experience rate.
+    if (Worked > 0) then
+    begin
+      MagicXpRate := Round(((MagicXpGain * 1.0) / Worked) * 3600000.0);
+      SmithXpRate := Round(((SmithXpGain * 1.0) / Worked) * 3600000.0);
+    end
+    else
+    begin
+      MagicXpRate := 0;
+      SmithXpRate := 0;
+    end;
+    
+    // Calculate profit/loss.
+    {$IFDEF PROFIT}
+      Profit := (BarsMade * BarProfit);
+    {$ENDIF}
+  end;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function CheckExperience: Boolean;
+Contributors: Bixby Sayz
+Description: Get current experience and levels.
+Date Created: January 4th, 2012. By Bixby Sayz. RS2 Build 696.
+Last Modification: April 2nd, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function CheckExperience: Boolean;
+begin
+  Result := False;
+  {$IFDEF DEBUG}
+    WriteString('CheckExperience', '');
+  {$ENDIF}
+  
+  with Players[CurrentPlayer], PlayerInfo[CurrentPlayer] do
+  begin
+  
+    // Switch to stats tab.
+    {$IFDEF DEBUG}
+      WriteString('CheckExperience', 'Switch to stats tab.');
+    {$ENDIF}
+    if not WaitForTab(Tab_Stats, True) then
+    begin
+      WriteString('CheckExperience', 'Failed to switch to stats tab.');
+      Exit;
+    end;
+    
+    // Get current skill levels.
+    {$IFDEF DEBUG}
+      WriteString('CheckExperience', 'Get skill levels.');
+    {$ENDIF}
+    GetAllLevels(False);
+   
+    // Get magic experience.
+    {$IFDEF DEBUG}
+      WriteString('CheckExperience', 'Get magic experience.');
+    {$ENDIF}
+    MagicXp := GetXp(Skill_Magic, False);
+    if (MagicXp < 0) then
+    begin
+      WaitRR(750, 100);
+      MagicXp := GetXp(Skill_Magic, False);
+      if (MagicXp < 0) then
+      begin
+        {$IFDEF DEBUG}
+          WriteString('CheckExperience', 'Failed to get magic experience.');
+        {$ENDIF}
+      end;
+    end;
+    {$IFDEF DEBUG}
+      WriteString('CheckExperience', Format('Magic Xp: %s, Level: %d.', [GroupDigits(MagicXp), Level[Skill_Magic]]));
+    {$ENDIF}
+    
+    // Get smith experience.
+    {$IFDEF DEBUG}
+      WriteString('CheckExperience', 'Get smith experience.');
+    {$ENDIF}
+    SmithXp := GetXp(Skill_Smithing, False);
+    if (SmithXp < 0) then
+    begin
+      WaitRR(750, 100);
+      SmithXp := GetXp(Skill_Smithing, False);
+      if (SmithXp < 0) then
+      begin
+        {$IFDEF DEBUG}
+          WriteString('CheckExperience', 'Failed to get smith experience.');
+        {$ENDIF}
+      end;
+    end;
+    {$IFDEF DEBUG}
+      WriteString('CheckExperience', Format('Smith Xp: %s, Level: %d.', [GroupDigits(SmithXp), Level[Skill_Smithing]]));
+    {$ENDIF}
+    
+    // Set starting experience (if not already done).
+    if (MagicXpStart = 0) then
+    begin
+      MagicXpStart := MagicXp;
+      MagicLvlStart := Level[Skill_Magic];
+      SmithXpStart := SmithXp;
+      SmithLvlStart := Level[Skill_Smithing];
+    end;
+    
+    // Calculate experience/levels gained.
+    MagicXpGain := (MagicXp - MagicXpStart);
+    MagicLvlGain := (Level[Skill_Magic] - MagicLvlStart);
+    SmithXpGain := (SmithXp - SmithXpStart);
+    SmithLvlGain := (Level[Skill_Smithing] - SmithLvlStart);
+    
+    // Calculate experience/levels gained per hour.
+    CalcExperienceRate;
+
+    // Success?
+    Result := (MagicXp > 0) and (SmithXp > 0);
+  end;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function SetMagicOptions: Boolean;
+Contributors: Bixby Sayz
+Description: Sets magic tab to all spells displayed sorted by level.
+Date Created: January 8th, 2012. By Bixby Sayz. RS2 Build 696.
+Last Modification: March 27th, 2012. By Bixby Sayz. RS2 Build 710.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function SetMagicOptions: Boolean;
+var
+  Buttons: TBoxArray;  // Dimensions of buttons along the bottom.
+  I: Integer;          // Loop counter.
+begin
+  Result := False;
+  {$IFDEF DEBUG}
+    WriteString('SetMagicOptions', '');
+  {$ENDIF}
+
+  // Setup buttons.
+  //          defensive casting             show/hide combat spells
+  //          show/hide teleport spells     show/hide miscellaneous spells
+  //          show/hide skill spells        sort by level order
+  //          sort by combat first          sort by teleports first
+  Buttons := [IntToBox(553, 441, 572, 460), IntToBox(583, 441, 602, 460),
+              IntToBox(604, 441, 623, 460), IntToBox(625, 441, 644, 460),
+              IntToBox(646, 441, 665, 460), IntToBox(674, 441, 693, 460),
+              IntToBox(693, 441, 712, 460), IntToBox(712, 441, 731, 460)];
+
+  // Switch to magic tab.
+  {$IFDEF DEBUG}
+    WriteString('SetMagicOptions', 'Switch to magic tab.');
+  {$ENDIF}
+  if not WaitForTab(Tab_Magic, True) then
+  begin
+    WriteString('SetMagicOptions', 'Failed to switch to magic tab.');
+    Exit;
+  end;
+
+  // Run throught the options. (Defensive, Combat, Teleport, Miscellaneous, Skill)
+  for I := 0 to 4 do
+    if not SimilarColors(GetColor(Buttons[I].X1, (Buttons[I].Y1 + 10)), 16711422, 5) then
+      MouseBox((Buttons[I].X1 + 2), (Buttons[I].Y1 + 2), (Buttons[I].X2 - 2), (Buttons[I].Y2 - 2), ClickLeft);
+
+  // Set sort order.
+  if not SimilarColors(GetColor((Buttons[5].X1 + 10), Buttons[5].Y1), 16711422, 5) then
+    MouseBox((Buttons[5].X1 + 2), (Buttons[5].Y1 + 2), (Buttons[5].X2 - 2), (Buttons[5].Y2 - 2), ClickLeft);
+
+  // Ensure magic list is scrolled all the way to the top.
+  if SimilarColors(GetColor(728, 226), 2041131, 5) then
+    HoldMouseWaitBox(723, 209, 732, 218, 1500, 2000, True);
+
+  // Success.
+  Result := True;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+procedure TakeABreak(TimeToBreak: Integer);
+Contributors: Bixby Sayz
+Description: Takes a break.
+Date Created: January 8th, 2012. By Bixby Sayz. RS2 Build 695.
+Last Modification: April 3rd, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+procedure TakeABreak(TimeToBreak: Integer);
+var
+  CT: Integer;  // Current time.
+  Hr: Integer;  // Hours.
+  Mn: Integer;  // Minutes.
+  Sc: Integer;  // Seconds.
+  I: Integer;   // Loop counter.
+  T: Integer;   // Time counter.
+begin
+  {$IFDEF DEBUG}
+    WriteString('TakeABreak', '');
+  {$ENDIF}
+
+  ConvertTime(TimeToBreak, Hr, Mn, Sc);
+  WriteString('TakeABreak', Format('Time remaining: %.2d:%.2d:%.2d', [Hr, Mn, Sc]));
+
+  I := 0;
+  T := GetSystemTime;
+  repeat
+    WaitRR(750, 100);
+    CT := (GetSystemTime - T);
+    if  ((CT div 30000) > I) then
+      if ((TimeToBreak - CT) > 0) then
+      begin
+        ConvertTime((TimeToBreak - CT), Hr, Mn, Sc);
+        WriteString('TakeABreak', Format('Time remaining: %0.2d:%0.2d:%0.2d', [Hr, Mn, Sc]));
+        Inc(I);
+      end;
+  until (GetSystemTime > (T + TimeToBreak));
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function CheckRandoms: Boolean;
+Contributors: Bixby Sayz
+Description: Checks for randoms. Returns true on everything okay.
+Date Created: January 2nd, 2012. By Bixby Sayz. RS2 Build 695.
+Last Modification: April 5th, 2012. By Bixby Sayz. RS2 Build 711.
+Note: Logic when using osifindrandoms:
+        False LoggedIn  - No random found.
+        True  LoggedIn  - Random found + solved.
+        True  LoggedOut - Random failed or no solver exists or unknown random.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function CheckRandoms: Boolean;
+var
+  Found: Boolean;  // Did we find a random?
+begin
+  Result := False;
+  {$IFDEF DEBUG}
+    WriteString('CheckRandoms', '');
+  {$ENDIF}
+
+  // If bank screen is open we can't be in a random.
+  Result := BankScreen;
+  if Result then
+    Exit;
+  
+  with Players[CurrentPlayer] do
+  begin
+  
+    // Check for randoms.
+    {$IFDEF DEBUG}
+      WriteString('CheckRandoms', 'Check for randoms.');
+    {$ENDIF}
+    Rand := '';
+    Found := OSIFindRandoms;
+    
+    // Did we find a random?
+    Result := not Found;
+    if Result then
+    begin
+      {$IFDEF DEBUG}
+        WriteString('CheckRandoms', 'No randoms found.');
+      {$ENDIF}
+      Exit;
+    end;
+    
+    // We found a random. Did we solve it?
+    Result := LoggedIn;
+    if Result then
+    begin
+      {$IFDEF DEBUG}
+        WriteString('CheckRandoms', 'Found and solved random: ' + Rand + '.');
+      {$ENDIF}
+      // Make sure random reward is handled.
+      FindRandomEventGift;
+      Exit;
+    end;
+    
+    // If we get this far one of three conditions exist: random failed, no
+    // solver defined for random, or unknown random.
+    WriteString('CheckRandoms', 'Failed to solve random: ' + Rand + '.');
+  end;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function FindSpinTicket(out Loc: TPoint): Boolean;
+Contributors: Bixby Sayz
+Description: Find and handle spin ticket. Returns true on found.
+Date Created: April 7th, 2012. By Bixby Sayz. RS2 Build 711.
+Last Modification: April 7th, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function FindSpinTicket(out Loc: TPoint): Boolean;
+begin
+  Result := False;
+  Loc := Point((-1), (-1));
+  {$IFDEF DEBUG}
+    WriteString('FindSpinTicket', '');
+  {$ENDIF}
+  
+  Result := FindDTM(SpinTicketDTM, Loc.X, Loc.Y, MIX1, MIY1, MIX2, MIY2);
+  {$IFDEF DEBUG}
+    if Result then
+      WriteString('FindSpinTicket', Format('Spin ticket found at (%d,%d).', [Loc.X, Loc.Y]));
+  {$ENDIF}
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function FindSquealIcon: Boolean;
+Contributors: Bixby Sayz
+Description: Find and close "play squeal of fortune" floating icon.
+Date Created: April 8th, 2012. By Bixby Sayz. RS2 Build 711.
+Last Modification: April 8th, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function FindSquealIcon: Boolean;
+var
+  P: TPoint;  // Location of icon.
+begin
+  Result := False;
+  {$IFDEF DEBUG}
+    WriteString('FindSquealIcon', '');
+  {$ENDIF}
+  
+  // Find center of creature's green head.
+  {$IFDEF DEBUG}
+    WriteString('FindSquealIcon', 'Find squeal icon.');
+  {$ENDIF}
+  Result := not FindColorTolerance(P.X, P.Y, 7786666, MSX1, MSY1, MSX2, MCY2, 10);
+  if Result then
+  begin
+    {$IFDEF DEBUG}
+      WriteString('FindSquealIcon', 'Icon not found. Nothing to do.');
+    {$ENDIF}
+    Exit;
+  end;
+
+  // Find center of close button.
+  {$IFDEF DEBUG}
+    WriteString('FindSquealIcon', 'Find close button.');
+  {$ENDIF}
+  if not FindColorTolerance(P.X, P.Y, 4440570, (P.X + 45), (P.Y + 10), (P.X + 70), (P.Y + 35), 12) then
+  begin
+    WriteString('FindSquealIcon', 'Failed to find close button.');
+    Exit;
+  end;
+  
+  // Close (hide) icon.
+  Mouse(P.X, P.Y, 5, 5, True);
+  Result := True;  
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+procedure DoReport;
+Contributors: Bixby Sayz
+Description: Progress report.
+Date Created: January 4th, 2012. By Bixby Sayz. RS2 Build 696.
+Last Modification: April 5th, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+procedure DoReport;
+var
+  S: TStringArray;     // Contents of report.
+  Hr: Integer;         // Hours.
+  Mn: Integer;         // Minutes.
+  Sc: Integer;         // Seconds.
+  TimeString: string;  // Time running as a string.
+  WorkString: string;  // Time worked as a string.
+  I: Integer;          // Loop counter.
+begin
+  {$IFDEF DEBUG}
+    WriteString('DoReport', '');
+  {$ENDIF}
+  
+  // Get time running.
+  ConvertTime(GetTimeRunning, Hr, Mn, Sc);
+  TimeString := Format('%0.2dh:%0.2dm:%0.2ds', [Hr, Mn, Sc]);
+  
+  SetLength(S, (Length(Players) + 6));
+
+  // Add script info.
+  S[0] := '[' + Replicate('-', 90) + ']';
+  S[1] := Padr(Format('[ %s v%s - Time Running: %s', [SCRIPT_NAME, SCRIPT_VERSION, TimeString]), 91) + ']';
+  S[2] := S[0];
+  S[3] := '[ Name | Status   | Worked   | Bars   | Magic   | Smith   | Mph     | Sph     | Profit     ]';
+  S[4] := S[0];
+  S[High(S)] := S[0];
+  
+  // Add players to report.
+  for I := 0 to High(Players) do
+    with Players[I], PlayerInfo[I] do
+    begin
+      ConvertTime(Worked, Hr, Mn, Sc);
+      WorkString := Format('%0.2d:%0.2d:%0.2d', [Hr, Mn, Sc]);
+      {$IFDEF PROFIT}
+        S[I + 5] := Format('[ %s | %s | %s | %6s | %7s | %7s | %7s | %7s | %10s |', [Padr(Left(Name, 4), 4), Padr(Status, 8), WorkString, GroupDigits(BarsMade), GroupDigits(MagicXpGain), GroupDigits(SmithXpGain), GroupDigits(MagicXpRate), GroupDigits(SmithXpRate), GroupDigits(Profit)]);
+      {$ELSE}  
+        S[I + 5] := Format('[ %s | %s | %s | %6s | %7s | %7s | %7s | %7s |            |', [Padr(Left(Name, 4), 4), Padr(Status, 8), WorkString, GroupDigits(BarsMade), GroupDigits(MagicXpGain), GroupDigits(SmithXpGain), GroupDigits(MagicXpRate), GroupDigits(SmithXpRate)]);
+      {$ENDIF}
+    end;
+        
+  // Print report.
+  {$IFDEF DEBUG}
+    WriteLn('');
+  {$ELSE}
+    AddToReport('');    
+  {$ENDIF}
+  for I := 0 to High(S) do
+    {$IFDEF DEBUG}
+      WriteLn(S[I]);
+    {$ELSE}
+      AddToReport(S[I]);    
+    {$ENDIF}
+  {$IFDEF DEBUG}
+    WriteLn('');
+  {$ELSE}
+    AddToReport('');    
+  {$ENDIF}
+end;
+
+{$IFDEF SMART}
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+procedure DoSmartReport;
+Contributors: Bixby Sayz
+Description: Progress report on smart canvas.
+Date Created: February 18th, 2012. By Bixby Sayz. RS2 Build 704.
+Last Modification: April 5th, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+procedure DoSmartReport;
+var
+  S: string;        // Text to be drawn on smart.
+  TPA: TPointArray;  // Text as a tpa.
+  HiTpa: Integer;  // Size of text tpa.
+  Bitmap: Integer;  // Image to be painted onto smart.
+  Hr: Integer;      // Hours.
+  Mn: Integer;      // Minutes.
+  Sc: Integer;      // Seconds.
+  I: Integer;  // Loop counter.
+begin
+  {$IFDEF DEBUG}
+    WriteString('DoSmartReport', '');
+  {$ENDIF}
+  
+  // Create buffer to draw info onto first.
+//  {$IFDEF SCAR333_UP}
+//    Bitmap := CreateBitmap((MSX1 + MSX2), 50, 15245824);
+//  {$ELSE}
+    Bitmap := BitmapFromString((MSX1 + MSX2), 50, '');
+    FastDrawClear(Bitmap, 15245824);
+//  {$ENDIF}
+  
+  // Wrap in try...finally to ensure we free bitmap.
+  try
+    with Players[CurrentPlayer], PlayerInfo[CurrentPlayer] do
+    begin
+      // Draw logo.
+      FastDrawTransparent((MSX2 - 38), 8, Logo, Bitmap);
+      
+      // Generate and draw script info.
+      ConvertTime(GetTimeRunning, Hr, Mn, Sc);
+      S := Format('%s v%s  -  Time Running: %0.2d:%0.2d:%0.2d  -  Current Player: %s', [SCRIPT_NAME, SCRIPT_VERSION, Hr, Mn, Sc, Name]);
+      TPA := LoadTextTPA(S, SmartFont);
+      HiTpa := High(TPA);
+      for I := 0 to HiTPA do
+        FastSetPixel(Bitmap, (TPA[I].X + 4), (TPA[I].Y + 4), 1);
+
+      // Generate and draw player info.
+      ConvertTime(Worked, Hr, Mn, Sc);
+      {$IFDEF PROFIT}
+        S := Format('Worked:%0.2d:%0.2d:%0.2d  Bars:%s  Magic:%s  Smith:%s  Profit:%s', [Hr, Mn, Sc, GroupDigits(BarsMade), GroupDigits(MagicXpGain), GroupDigits(SmithXpGain), GroupDigits(Profit)]);
+      {$ELSE}  
+        S := Format('Worked:%0.2d:%0.2d:%0.2d  Bars:%s  Magic:%s  Smith:%s', [Hr, Mn, Sc, GroupDigits(BarsMade), GroupDigits(MagicXpGain), GroupDigits(SmithXpGain)]);
+      {$ENDIF}
+      TPA := LoadTextTPA(S, SmartFont);
+      HiTpa := High(TPA);
+      for I := 0 to HiTPA do
+        FastSetPixel(Bitmap, (TPA[I].X + 4), (TPA[I].Y + 25), 1);
+      
+      // Draw info on debug canvas.
+      SmartDebugBitmap(Bitmap, 0, MSY2);
+    end;
+  finally
+    FreeBitmap(Bitmap);
+  end;
+end;
+{$ENDIF}
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function MyOpenBank(WhichBank: Integer): Boolean;
+Contributors: Bixby Sayz
+Description: Opens bank/bank chests.
+Date Created: January 25th, 2012. By Bixby Sayz. RS2 Build 699.
+Last Modification: April 8th, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function MyOpenBank(WhichBank: Integer): Boolean;
+var
+  Compass: Integer;     // Compass angle.
+  Color: Integer;       // Search color.
+  HueMod: Extended;     // Hue modifier.
+  SatMod: Extended;     // Saturation modifier.
+  Tol: Integer;         // Color finding tolerance.
+  P: TPoint;            // Location of bank chest/banker.
+begin
+  Result := False;
+  {$IFDEF DEBUG}
+    WriteString('MyOpenBank', '');
+  {$ENDIF}
+  
+  // Is this a bank osi can handle?
+  if (WhichBank < Loc_SW) then
+  begin
+    {$IFDEF DEBUG}
+      WriteString('MyOpenBank', 'Open bank.');
+    {$ENDIF}
+    ClickCompass(True);
+    Result := OpenBank(WhichBank);
+    Exit;
+  end;
+  
+  // Setup bank chest/banker.
+  case WhichBank of
+    Loc_SW: begin
+              Compass := 180;
+              Color := 10790060;
+              HueMod := 0.35;
+              SatMod := 0.25;
+              Tol := 7;
+            end;
+    Loc_GG: begin
+              Compass := 270;
+              Color := 3428978;
+              HueMod := 0.13;
+              SatMod := 0.72;
+              Tol := 4;
+            end;
+    Loc_DA: begin
+              Compass := 180;
+              Color := 5197650;
+              HueMod := 2.09;
+              SatMod := 0.37;
+              Tol := 2;
+            end;
+    Loc_DH: begin
+              Compass := 180;
+              Color := 2177340;
+              HueMod := 0.13;
+              SatMod := 0.34;
+              Tol := 4;
+            end;
+    else
+      begin
+        WriteString('MyOpenBank', 'Invalid bank location.');
+        Exit;
+      end;  
+  end;
+  
+  // Set compass angle.
+  SetAngle(True);
+  MakeCompass(Compass);
+  
+  // Find bank chest/banker.
+  {$IFDEF DEBUG}
+    WriteString('MyOpenBank', 'Find bank.');
+  {$ENDIF}
+  if not MyFindColor(Color, Tol, HueMod, SatMod, ['hest', 'anker'], P) then
+  begin
+    WriteString('MyOpenBank', 'Failed to find bank.');
+    Exit;
+  end;
+
+  // Open bank chest.
+  {$IFDEF DEBUG}
+    WriteString('MyOpenBank', 'Open bank.');
+  {$ENDIF}
+  if (WhichBank = Loc_DH) then
+  begin
+    Mouse(P.X, P.Y, 0, 0, False);
+    ChooseOption('ank Fr');
+  end
+  else
+    Mouse(P.X, P.Y, 0, 0, True);
+
+  // Success?  
+  Result := WaitFunc(@BankScreen, True, 5, 10, 2500, 5000);
+end;
+   
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function MyDepositItems(ExcludeSlots: TIntArray): Boolean;
+Contributors: Bixby Sayz
+Description: Deposits all items with exclusions.
+Date Created: March 25th, 2012. By Bixby Sayz. RS2 Build 710.
+Last Modification: March 26th, 2012. By Bixby Sayz. RS2 Build 710.
+Note: Assumes bank screen is open.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function MyDepositItems(ExcludeSlots: TIntArray): Boolean;
+var
+  DepositSlots: TIntArray;  // Slots to actually desposit.
+  ItemBox: TBox;            // Bounds of inventory item.
+  I: Integer;               // Loop counter.
+begin
+  Result := False;
+  {$IFDEF DEBUG}
+    WriteString('MyDepositItems', '');
+  {$ENDIF}
+  
+  // Check bank screen.
+  if not BankScreen then
+  begin
+    WriteString('MyDepositItems', 'Bank not open.');
+    Exit;
+  end;
+  
+  // Are we depositing everything?
+  if (Length(ExcludeSlots) = 0) then
+  begin
+    {$IFDEF DEBUG}
+      WriteString('MyDepositItems', 'Deposit all items.');
+    {$ENDIF}
+    MouseBox(354, 298, 384, 318, ClickLeft); 
+    Result := InvEmpty(False);
+    Exit;
+  end;
+  
+  // Figure out which inventory slots to bank.
+  DepositSlots := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27];
+  for I := 0 to High(ExcludeSlots) do
+    TIARemove(DepositSlots, ExcludeSlots[I]);
+    
+  // Loop through inventory slots and do deposit.  
+  for I := 0 to High(DepositSlots) do
+  begin
+
+    {$IFDEF DEBUG}
+      WriteString('MyDepositItems', 'Checking slot ' + IntToStr(DepositSlots[I]));
+    {$ENDIF}
+
+    // Deposit if item slot exists.
+    if InvItemExists(DepositSlots[I], False) then
+    begin
+      {$IFDEF DEBUG}
+        WriteString('MyDepositItems', 'Depositing slot ' + IntToStr(DepositSlots[I]));
+      {$ENDIF}
+      ItemBox := GetItemBounds(DepositSlots[I]);
+      ItemBox := Box((ItemBox.X1 + 3), (ItemBox.Y1 + 3), (ItemBox.X2 - 3), (ItemBox.Y2 - 3));
+      MouseBox(ItemBox.X1, ItemBox.Y1, ItemBox.X2, ItemBox.Y2, ClickRight);
+      ChooseOptionMulti(['t-A', 'All', 'posit']);
+      WaitFunc(@OptionBoxExists, False, 5, 10, 2500, 5000);
+    end;
+  end;
+  
+  // Success.
+  Result := True;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function MyWithdraw(ItemDTM, Amount: Integer): Boolean;
+Contributors: Bixby Sayz
+Description: Locates item by dtm in bank and withdraws.
+Date Created: January 4th, 2012. By Bixby Sayz. RS2 Build 696.
+Last Modification: March 29th, 2012. By Bixby Sayz. RS2 Build 710.
+Note: Assumes bank is open.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function MyWithdraw(ItemDTM, Amount: Integer): Boolean;
+var
+  ClickPos: TPoint;      // Screen coord to click.
+  ItemBox: TBox;         // Bounds of bank item.
+  TextTPA: TPointArray;  // TPA of search text.
+  T: Integer;            // Loop counter.
+begin
+  Result := False;
+  {$IFDEF DEBUG}
+    WriteString('MyWithdraw', '');
+  {$ENDIF}
+  
+  // Check bank screen.
+  if not BankScreen then
+  begin
+    WriteString('MyWithdraw', 'Bank not open.');
+    Exit;
+  end;
+
+  // Locate item on bank screen.
+  {$IFDEF DEBUG}
+    WriteString('MyWithdraw', 'Locate item in bank.');
+  {$ENDIF}
+  T := GetSystemTime + RandomRange(2500, 5000);
+  repeat
+    if FindDTM(ItemDTM, ClickPos.X, ClickPos.Y, MBX1, MBY1, MBX2, MBY2) then
+      Break;
+    WaitRR(5, 10);
+  until (GetSystemTime > T);
+  if (GetSystemTime > T) then
+  begin
+    WriteString('MyWithdraw', 'Failed to locate item in bank.');
+    Exit;
+  end;
+  ItemBox := Box((ClickPos.X - 10), (ClickPos.Y - 10), (ClickPos.X + 10), (ClickPos.Y + 10));
+  IncEx(ClickPos.X, RandomRange((-10), 10));
+  IncEx(ClickPos.Y, RandomRange((-10), 10));
+  {$IFDEF DEBUG}
+    WriteString('MyWithdraw', Format('Item located: (%d,%d).', [ClickPos.X, ClickPos.Y]));
+  {$ENDIF}
+  
+  // Withdraw 1?
+  if (Amount = Withdraw_1) then
+  begin
+    Mouse(ClickPos.X, ClickPos.Y, 0, 0, True);
+    Result := True;
+    Exit;
+  end
+  else
+    Mouse(ClickPos.X, ClickPos.Y, 0, 0, False);
+
+  // Withdraw all?
+  if (Amount = Withdraw_All) then
+    ChooseOption('w-All')
+    
+  else
+    // Withdraw all but one?
+    if (Amount = Withdraw_All_But_One) then
+      ChooseOption('but one')
+    
+    else
+      // Does item amount option exist?
+      if OptionExists('w-' + IntToStr(Amount)) then
+        ChooseOption('w-' + IntToStr(Amount))
+      
+      // Choose custom amount.
+      else
+      begin
+        ChooseOption('-X');
+        T := GetSystemTime + RandomRange(7500, 10000);
+        repeat
+          WaitRR(25, 50);
+          if (GetSystemTime > T) then
+          begin
+            WriteString('MyWithdrawDTM', '''Enter Amount'' failed to appear.');
+            Exit;
+          end;
+          FindColors(TextTPA, 0, MCX1, MCY1, MCX2, MCY2);
+        until FindTextTPAinTPA('Enter', ScreenChars, TextTPA, ClickPos.X, ClickPos.Y);
+        TypeSend(IntToStr(Amount));
+      end;
+      
+  // Success.
+  Result := True; 
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function DoBanking: Boolean;
+Contributors: Bixby Sayz
+Description: Bank bars and withdraw ores.
+Date Created: January 1st, 2012. By Bixby Sayz. RS2 Build 695.
+Last Modification: April 2nd, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function DoBanking: Boolean;
+var
+  ItemBox: TBox;  // Bounds of inventory item.
+begin
+  Result := False;
+  {$IFDEF DEBUG}
+    WriteString('DoBanking', '');
+  {$ENDIF}
+  
+  with Players[CurrentPlayer], PlayerInfo[CurrentPlayer] do
+  begin
+    
+    // Open bank. Sometimes fails because of setcompass spinning wildly and
+    // resulting in a random camera angle.
+    if not BankScreen then
+    begin
+      {$IFDEF DEBUG}
+        WriteString('DoBanking', 'Open bank.');
+      {$ENDIF}
+      if not MyOpenBank(Players[CurrentPlayer].Integers[IBNK]) then
+      begin
+        WriteString('DoBanking', 'Failed to open bank. Trying again.');
+        WaitRR(750, 1250);
+        if not MyOpenBank(Players[CurrentPlayer].Integers[IBNK]) then
+        begin
+          WriteString('DoBanking', 'Failed to open bank.');
+          Exit;
+        end;
+      end;
+    end;
+    
+    // Wrap in a try...finally to ensure we close the bank.
+    try
+      
+      // Deposit all items.
+      {$IFDEF DEBUG}
+        WriteString('MyDepositItems', 'Deposit all items.');
+      {$ENDIF}
+      MouseBox(354, 298, 384, 318, ClickLeft);
+      MMouse((MBX2 - 50), (MBY2 - 30), MBX2, MBY2); 
+      
+      
+      // If using coalbag withdraw coalbag and secondary ore, and fill coalbag.
+      
+      if Booleans[BBAG] then
+      begin
+        // Withdraw coalbag.
+        {$IFDEF DEBUG}
+          WriteString('DoBanking', 'Withdraw coalbag.');
+        {$ENDIF}
+        if not MyWithdraw(CoalbagDTM, Withdraw_1) then
+        begin
+          WriteString('DoBanking', 'Failed to withdraw coalbag.');
+          Exit;
+        end;
+
+        // Withdraw secondary ore.
+        {$IFDEF DEBUG}
+          WriteString('DoBanking', 'Withdraw secondary ore.');
+        {$ENDIF}
+        if not MyWithdraw(SecondaryDTM, Withdraw_All) then
+        begin
+          WriteString('DoBanking', 'Failed to withdraw secondary ore.');
+          Exit;
+        end;
+      
+        // Fill coalbag. 
+        {$IFDEF DEBUG}
+          WriteString('DoBanking', 'Fill coalbag.');
+        {$ENDIF}
+        ItemBox := GetItemBounds(0);
+        ItemBox := Box((ItemBox.X1 + 3), (ItemBox.Y1 + 3), (ItemBox.X2 - 3), (ItemBox.Y2 - 3));
+        MouseBox(ItemBox.X1, ItemBox.Y1, ItemBox.X2, ItemBox.Y2, ClickRight);
+        ChooseOption('ill');
+        WaitRR(750, 1250);
+        
+        // If coalbag was already full (should only happen on first run and
+        // player previously filled coalbag) deposit left over secondary.
+        if InvItemExists(27, False) then
+        begin
+          {$IFDEF DEBUG}
+            WriteString('DoBanking', 'Deposit secondary ore.');
+          {$ENDIF}
+          if not MyDepositItems([0]) then
+          begin
+            WriteString('DoBanking', 'Failed to deposit secondary ore.');
+            Exit;
+          end;
+        end;
+      end;
+      
+      // Withdraw nature rune.
+      {$IFDEF DEBUG}
+        WriteString('DoBanking', 'Withdraw nature rune.');
+      {$ENDIF}
+      if not MyWithdraw(NatureDTM, Withdraw_All) then
+      begin
+        WriteString('DoBanking', 'Failed to withdraw nature rune.');
+        Exit;
+      end;
+
+      // Withdraw primary ore.
+      {$IFDEF DEBUG}
+        WriteString('DoBanking', 'Withdraw primary ore.');
+      {$ENDIF}
+      if not MyWithdraw(PrimaryDTM, NumPrimary) then
+      begin
+        WriteString('DoBanking', 'Failed to withdraw primary ore.');
+        Exit;
+      end;
+      
+      // Withdraw secondary ore.
+      if UseSecondary then
+      begin
+        {$IFDEF DEBUG}
+          WriteString('DoBanking', 'Withdraw secondary ore.');
+        {$ENDIF}
+        if not MyWithdraw(SecondaryDTM, Withdraw_All) then
+        begin
+          WriteString('DoBanking', 'Failed to withdraw secondary ore.');
+          Exit;
+        end; 
+      end;
+      
+      // Success.
+      Result := True;
+    finally
+      if BankScreen then
+        CloseBank(False);  
+    end;
+  end;    
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function DoSuperHeat: Boolean;
+Contributors: Bixby Sayz
+Description: Superheats ores in inventory.
+Date Created: January 1st, 2012. By Bixby Sayz. RS2 Build 695.
+Last Modification: April 7th, 2012. By Bixby Sayz. RS2 Build 711.
+Note: Random checking should be in here but removed deliberately. Checking for
+      randoms slows it to a crawl.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function DoSuperHeat: Boolean;
+var
+  Slot: Integer;     // Inventory slot.
+  ItemBox: TBox;     // Bounds of inventory item.
+  ClickPos: TPoint;  // Actual location to click. 
+  P: TPoint;         // Screen coords of item. Not used.
+  Found: Boolean;    // Spin ticket found?
+  Loc: TPoint;       // Location of spin ticket.
+begin
+  Result := False;
+  {$IFDEF DEBUG}
+    WriteString('DoSuperHeat', '');
+  {$ENDIF}
+  
+  with PlayerInfo[CurrentPlayer] do
+  begin
+  
+    // Loop through primary ores.
+    for Slot := StartSlot to EndSlot do
+    begin
+      
+      // Move mouse to spell icon.
+      if MouseInBox(SpellBox) then
+        GetMousePos(ClickPos.X, ClickPos.Y)
+      else
+      begin
+        ClickPos.X := RandomRange(SpellBox.X1, SpellBox.X2);
+        ClickPos.Y := RandomRange(SpellBox.Y1, SpellBox.Y2);
+        MMouse(ClickPos.X, ClickPos.Y, 0, 0); 
+      end;
+      {$IFDEF DEBUG}
+        WriteString('DoSuperHeat', Format('Move mouse to spell (%d,%d).', [ClickPos.X, ClickPos.Y]));
+      {$ENDIF}
+
+      // Wait for magic tab.
+      {$IFDEF DEBUG}
+        WriteString('DoSuperHeat', 'Wait for magic tab.');
+      {$ENDIF}
+      if not WaitForTab(Tab_Magic, False) then
+      begin
+        WriteString('DoSuperHeat', 'Failed to switch to magic tab.');
+        Exit;
+      end;
+      
+      // Check spell is enabled and click on it.
+      {$IFDEF DEBUG}
+        WriteString('DoSuperHeat', 'Click spell icon.'); 
+      {$ENDIF}
+      if not (GetColor(SpellPos.X, SpellPos.Y) = SPELL_COLOR) then
+      begin
+        WaitRR(1500, 2500);
+        if not (GetColor(SpellPos.X, SpellPos.Y) = SPELL_COLOR) then
+        begin
+          WriteString('DoSuperHeat', 'Spell icon not enabled. Out of runes?');
+          Exit;
+        end;
+      end;
+      Mouse(ClickPos.X, ClickPos.Y, 0, 0, True)
+      
+      // Move mouse to ore. Adjust for osi's item bounds being a bit too big.
+      ItemBox := GetItemBounds(Slot);
+      ItemBox := Box((ItemBox.X1 + 3), (ItemBox.Y1 + 3), (ItemBox.X2 - 3), (ItemBox.Y2 - 3));
+      if MouseInBox(ItemBox) then
+        GetMousePos(ClickPos.X, ClickPos.Y)
+      else
+      begin
+        ClickPos.X := RandomRange(ItemBox.X1, ItemBox.X2);
+        ClickPos.Y := RandomRange(ItemBox.Y1, ItemBox.Y2);
+        MMouse(ClickPos.X, ClickPos.Y, 0, 0);
+      end;
+      {$IFDEF DEBUG}
+        WriteString('DoSuperHeat', Format('Move mouse to item slot %d (%d,%d).', [Slot, ClickPos.X, ClickPos.Y]));
+      {$ENDIF}
+      
+      // Wait for inventory tab.
+      {$IFDEF DEBUG}
+        WriteString('DoSuperHeat', 'Wait for inventory tab.');
+      {$ENDIF}
+      if not WaitForTab(Tab_Inv, False) then
+      begin
+        WriteString('DoSuperHeat', 'Failed to switch to inventory tab.');
+        Exit;
+      end;
+      
+      // Check for spin ticket while on inventory tab.
+      {$IFDEF DEBUG}
+        WriteString('DoSuperHeat', 'Check for spin ticket.');
+      {$ENDIF}
+      Found := FindSpinTicket(Loc);
+      
+      // Click on ore.
+      {$IFDEF DEBUG}
+        WriteString('DoSuperHeat', Format('Click item slot %d (%d,%d).', [Slot, ClickPos.X, ClickPos.Y]));
+      {$ENDIF}
+      if FindDTM(PrimaryDTM, P.X, P.Y, ItemBox.X1, ItemBox.Y1, ItemBox.X2, ItemBox.Y2) then
+      begin
+        Mouse(ClickPos.X, ClickPos.Y, 0, 0, True);
+        // Update experience.
+        Inc(BarsMade);
+        IncEx(MagicXpGain, 53);
+        SmithXpGain := Round(BarsMade * XpPerBar);
+      end
+      else
+      begin
+        WriteString('DoSuperHeat', Format('No ore at slot %d. Skipping.', [Slot]));
+        WaitForTab(Tab_Magic, True);
+        Continue;
+      end;
+    end;
+    
+    // If spin ticket found deal with it.
+    if Found then
+    begin
+      // Switch to inventory tab.
+      {$IFDEF DEBUG}
+        WriteString('DoSuperHeat', 'Switch to inventory tab.');
+      {$ENDIF}
+      if not WaitForTab(Tab_Inv, True) then
+      begin
+        WriteString('DoSuperHeat', 'Failed to switch to inventory tab.');
+        Exit;
+      end;
+
+      // Click on spin ticket to cash it in.
+      Mouse(Loc.X, Loc.Y, 10, 10, True);
+      
+      // Switch back to magic tab.
+      {$IFDEF DEBUG}
+        WriteString('DoSuperHeat', 'Switch to magic tab.');
+      {$ENDIF}
+      if not WaitForTab(Tab_Magic, True) then
+      begin
+        WriteString('DoSuperHeat', 'Failed to switch to magic tab.');
+        Exit;
+      end;
+    end;
+  end;
+  
+  // Success.
+  Result := True;
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+function ActivityLoop: Boolean;
+Contributors: Bixby Sayz
+Description: Main activity loop for current player.
+Date Created: January 1st, 2012. By Bixby Sayz. RS2 Build 695.
+Last Modification: April 8th, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+function ActivityLoop: Boolean;
+var
+  PlayerTimer: Integer;  // Time to run player (randomized).
+  T: Integer;            // Time counter.
+begin
+  Result := False; 
+  {$IFDEF DEBUG}
+    WriteString('ActivityLoop', '');
+  {$ENDIF}
+
+  // Generate randomized time to run before break.
+  if (PlayerTime > 0) then
+  begin
+    T := Round(PlayerTime * 60000 * 0.1);
+    PlayerTimer := GetSystemTime + (PlayerTime * 60000) + RandomRange((-T), T); 
+  end;
+  
+  // Immediately after logging in we have to wait for tab to switch back to
+  // whatever was the current tab last time player logged out. If we switch to
+  // to stats tab too fast it will simply switch back on us, so wait for it.
+  WaitRR(750, 1250);
+
+  // Check for randoms.
+  {$IFDEF DEBUG}
+    WriteString('ActivityLoop', 'Check randoms.');
+  {$ENDIF}
+  if not CheckRandoms then
+  begin
+    WriteString('ActivityLoop', 'Failed random check.');
+    Exit;
+  end;
+  
+  // Switch to stats tab and check experience.
+  {$IFDEF DEBUG}
+    WriteString('ActivityLoop', 'Check experience.');
+  {$ENDIF}
+  if not CheckExperience then
+  begin
+    WriteString('ActivityLoop', 'Failed to check experience. Retrying.');
+    if not CheckExperience then
+    begin
+      WriteString('ActivityLoop', 'Failed to check experience.');
+      Exit;
+    end;
+  end;
+  
+  // Switch to magic tab and check sort order.
+  {$IFDEF DEBUG}
+    WriteString('ActivityLoop', 'Set magic sort order.');
+  {$ENDIF}
+  if not SetMagicOptions then
+  begin
+    WriteString('ActivityLoop', 'Failed to set magic sort order.');
+    Exit;
+  end;
+  
+  // Perform activity loop until we hit our time limit or something goes
+  // wrong.
+  repeat
+    
+    // Find and close squeal of fortune floating icon.
+    {$IFDEF DEBUG}
+      WriteString('ActivityLoop', 'Find squeal icon.');
+    {$ENDIF}
+    if not FindSquealIcon then
+    begin
+      WriteString('ActivityLoop', 'Failed to close squeal icon.');
+      Exit;
+    end;
+
+    // Check for randoms.
+    {$IFDEF DEBUG}
+      WriteString('ActivityLoop', 'Check randoms.');
+    {$ENDIF}
+    if not CheckRandoms then
+    begin
+      WriteString('ActivityLoop', 'Failed random check.');
+      Exit;
+    end;
+  
+    // Bank finished bars and withdraw ore for next round.
+    {$IFDEF DEBUG}
+      WriteString('Activity Loop', 'Do banking.');
+    {$ENDIF}
+    if not DoBanking then
+    begin
+      WriteString('Activity Loop', 'Failed to bank.');
+      Exit;
+    end;
+    Inc(Players[CurrentPlayer].Banked);
+    
+    // Check for randoms.
+    {$IFDEF DEBUG}
+      WriteString('ActivityLoop', 'Check randoms.');
+    {$ENDIF}
+    if not CheckRandoms then
+    begin
+      WriteString('ActivityLoop', 'Failed random check.');
+      Exit;
+    end;
+
+    // Superheat ores.
+    {$IFDEF DEBUG}
+      WriteString('ActivityLoop', 'Superheat ores.');
+    {$ENDIF}
+    if not DoSuperHeat then
+    begin
+      WriteString('ActivityLoop', 'Failed to superheat ores.');
+      Exit;
+    end;
+    
+    // Check for randoms.
+    {$IFDEF DEBUG}
+      WriteString('ActivityLoop', 'Check randoms.');
+    {$ENDIF}
+    if not CheckRandoms then
+    begin
+      WriteString('ActivityLoop', 'Failed random check.');
+      Exit;
+    end;
+
+    // Calculate experience and do report.
+    CalcExperienceRate;
+    DoReport;
+    {$IFDEF SMART}
+      DoSmartReport;
+    {$ENDIF}
+    
+    // Have we gone over our time?
+    if (PlayerTime > 0) then
+      Result := (GetSystemTime > PlayerTimer);
+
+  until Result;
+  
+  // Wait for it to switch back to magic tab after last cast of superheat.
+  // Reading experience in next step will fail if we don't wait.
+  WaitForTab(Tab_Magic, False);
+  
+  // Switch to stats tab and check experience again.
+  {$IFDEF DEBUG}
+    WriteString('ActivityLoop', 'Check experience.');
+  {$ENDIF}
+  if not CheckExperience then
+  begin
+    WriteString('ActivityLoop', 'Failed to check experience.');
+    Exit;
+  end;
+  
+  // Finished.
+  WriteString('ActivityLoop', 'Time for a break.');
+end;
+
+{=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+procedure MultiPlayerLoop;
+Contributors: Bixby Sayz
+Description: Cycle through players until all inactive.
+Date Created: January 1st, 2012. By Bixby Sayz. RS2 Build 695.
+Last Modification: April 3rd, 2012. By Bixby Sayz. RS2 Build 711.
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=}
+procedure MultiPlayerLoop;
+var
+  ScriptTimer: Integer;  // Time to run script (randomized).
+  BreakTimer: Integer;   // Time to break (randomized).
+  T: Integer;            // Time counter.
+  {$IFDEF SMART}
+    LastReset: Integer;  // Time of last smart reset.
+    NewWorld: Integer;   // New world for smart client.
+  {$ENDIF}
+begin
+  {$IFDEF DEBUG}
+    WriteString('MultiPlayerLoop', '');
+  {$ENDIF}
+
+  // Generate randomized time to run script.
+  if (ScriptTime > 0) then
+  begin
+    T := Round(ScriptTime * 60000 * 0.1);
+    ScriptTimer := GetSystemTime + (ScriptTime * 60000) + RandomRange((-T), T); 
+  end;
+  
+  // Track last time smart reloaded.
+  {$IFDEF SMART}
+    LastReset := GetSystemTime;
+  {$ENDIF}
+  
+  // Make sure starting player is active.
+  {$IFDEF DEBUG}
+    WriteString('MultiPlayerLoop', 'Check starting player.');
+  {$ENDIF}
+  while not Players[CurrentPlayer].Active do
+  begin
+    if (ActivePlayers = 0) then
+    begin
+      WriteString('MultiPlayerLoop', 'No players active.');
+      Exit;
+    end;
+    CurrentPlayer := NextActivePlayerIndex;
+  end;
+  
+  // Loop through players until all inactive.
+  while (ActivePlayers > 0) do
+    with Players[CurrentPlayer] do
+    begin
+      WriteString('MultiPlayerLoop', Format('Current player: %d (%s).', [CurrentPlayer, Name]));
+
+      // Update player's status.
+      Status := 'Active';
+      try
+        // Do we need to reload smart?
+        {$IFDEF SMART}
+          if ((GetSystemTime + (PlayerTime * 60000) - LastReset) > SMART_TIME) then
+          begin
+            {$IFDEF DEBUG}
+              WriteString('MultiPlayerLoop', 'Reload smart client.');
+            {$ENDIF}
+            repeat
+              NewWorld := RandomWorld(Member);
+            until (NewWorld <> SMART_Server);
+            SMART_Server := NewWorld;
+            InitiateSMART;
+            LastReset := GetSystemTime;
+          end;
+        {$ENDIF}
+        
+        // Update smart report.
+        {$IFDEF SMART}
+          DoSmartReport;
+        {$ENDIF}
+        
+        // Login player.
+        {$IFDEF DEBUG}
+          WriteString('MultiPlayerLoop', 'Login player.');
+        {$ENDIF}
+        if not MyLogin then
+        begin
+          WriteString('MultiPlayerLoop', 'Failed to login player.');
+          Status := 'Inactive';
+          Active := False;
+          Logout;
+          Continue;
+        end;
+        
+        // Perform activity loop for player.
+        {$IFDEF DEBUG}
+          WriteString('MultiPlayerLoop', 'Perform activity loop.');
+        {$ENDIF}
+        if not ActivityLoop then
+        begin
+          WriteString('MultiPlayerLoop', 'Player inactive after activity loop.');
+          Status := 'Inactive';
+          Active := False;
+        end;
+        
+        // Logout player.
+        Logout;
+        
+        // Update status.
+        if (Status = 'Active') then
+          Status := 'On Break';
+        
+        // Do report.
+        DoReport;
+        {$IFDEF SMART}
+          DoSmartReport;
+        {$ENDIF}
+          
+        // Break between players.
+        if (BreakTime > 0) and (ActivePlayers > 0) then
+        begin
+          {$IFDEF DEBUG}
+            WriteString('MultiPlayerLoop', 'Break between players.');
+          {$ENDIF}
+          T := Round(BreakTime * 60000 * 0.1);
+          BreakTimer := (BreakTime * 60000) + RandomRange((-T), T);
+          TakeABreak(BreakTimer); 
+        end;
+          
+      finally
+        // Double check player is logged out.
+        if LoggedIn then
+          Logout;
+
+        // Switch to next player.
+        {$IFDEF DEBUG}
+          WriteString('MultiPlayerLoop', 'Switch to next player.');
+        {$ENDIF}
+        if (ActivePlayers > 0) then
+          CurrentPlayer := NextActivePlayerIndex;
+      end;
+      
+      // Have we reached total script time?
+      if (ScriptTime > 0) then
+        if (GetSystemTime > ScriptTimer) then
+        begin
+          WriteString('MultiPlayerLoop', 'Total script time reached.');
+          Break;
+        end;
+    end;
+    
+  // Finished.
+  if (ActivePlayers = 0) then
+    WriteString('MultiPlayerLoop', 'All players inactive.');
+end;
+ 
+/////////////////////////////////////////////
+//////////      MAIN PROGRAM      ///////////
+/////////////////////////////////////////////
+begin
+  ClearDebug;
+  WriteLn(Format('%s v%s (%s) by %s', [SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_DATE, SCRIPT_AUTHOR]));
+  WriteLn('');
+
+  SetupScript;
+  MultiPlayerLoop;
+end.
